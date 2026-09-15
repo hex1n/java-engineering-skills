@@ -1,0 +1,20 @@
+{
+  "name": "java-engineering-skills",
+  "version": "0.5.2",
+  "description": "Java 8–21 backend guidance for implementation, testing, API security, and JVM performance.",
+  "author": {
+    "name": "Java Engineering Skills contributors"
+  },
+  "skills": "./skills/",
+  "license": "Apache-2.0",
+  "keywords": ["java", "design-patterns", "concurrency", "spring-boot", "redis", "messaging", "transactions", "mysql", "sql-optimization", "testing", "api-security", "jvm-performance"],
+  "interface": {
+    "displayName": "Java Engineering Skills",
+    "shortDescription": "Build Java services with explicit runtime and data contracts.",
+    "longDescription": "Ten focused skills for modern Java, design, concurrency, Spring Boot, Redis, messaging, MySQL design and optimization, testing, API security, and JVM performance.",
+    "developerName": "Java Engineering Skills contributors",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Apply the relevant Java backend guidelines to this task while preserving its versions and behavior."]
+  }
+}

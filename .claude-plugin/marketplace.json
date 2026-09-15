@@ -1,0 +1,16 @@
+{
+  "name": "java-engineering-skills",
+  "metadata": {
+    "description": "Version-aware Java 8–21 engineering skills for backend development and incremental modernization."
+  },
+  "owner": {
+    "name": "Java Engineering Skills contributors"
+  },
+  "plugins": [
+    {
+      "name": "java-engineering-skills",
+      "source": "./plugins/java-engineering-skills",
+      "description": "Java 8–21 backend guidance for implementation, testing, API security, and JVM performance."
+    }
+  ]
+}

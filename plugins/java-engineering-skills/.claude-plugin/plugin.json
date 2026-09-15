@@ -1,0 +1,10 @@
+{
+  "name": "java-engineering-skills",
+  "version": "0.5.2",
+  "description": "Java 8–21 backend guidance for implementation, testing, API security, and JVM performance.",
+  "author": {
+    "name": "Java Engineering Skills contributors"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["java", "design-patterns", "concurrency", "spring-boot", "redis", "messaging", "transactions", "mysql", "sql-optimization", "testing", "api-security", "jvm-performance"]
+}

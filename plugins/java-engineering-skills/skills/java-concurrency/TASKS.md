@@ -1,0 +1,62 @@
+# Tasks, deadlines, and overload
+
+## Executor capacity and ownership
+
+Choose capacity from CPU work, blocking time, downstream limits, and acceptable
+queue delay. Define queue size and rejection behavior together. A fixed pool
+with an unbounded queue can accumulate work indefinitely; increasing
+`maximumPoolSize` does not grow past the core size while an unbounded queue
+continues accepting tasks.
+
+`CallerRunsPolicy` can execute work on a request/event-loop thread and break
+latency or thread-confinement assumptions; after shutdown it discards tasks.
+Silent discard combined with `submit` can leave a returned future without a
+completion. For required work, make admission failure explicit and observable.
+Test both saturation and shutdown rejection paths.
+
+Keep shared executors under application lifecycle management. Locally owned
+executors need a completion/shutdown contract. `ExecutorService.close()` is
+available from Java 19 and waits for termination; wrapping an async-returning
+method in try-with-resources can make return wait for its work.
+
+Sources: [ThreadPoolExecutor](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html),
+[ExecutorService.close](https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/util/concurrent/ExecutorService.html).
+
+## CompletableFuture and cancellation
+
+Non-async continuation stages may run on the completing thread. Async stages
+without an explicit executor normally use the common pool. Assign blocking or
+context-sensitive work to an appropriate owned executor; `ThreadLocal`, logging,
+security, and transaction context do not follow arbitrary task submission by
+assumption.
+
+`get(timeout)` limits the caller's wait, not the operation's lifetime.
+Java 9's `orTimeout` completes a future exceptionally, but likewise does not
+prove the underlying I/O stopped. `CompletableFuture.cancel(true)` does not
+interrupt its computation like a conventional interruptible task handle.
+Keep cancellation handles and configure the actual operation's timeouts.
+`allOf` completion also does not imply automatic cancellation of sibling work.
+
+Pass a remaining total budget into downstream operations rather than restarting
+the full timeout at each retry or stage. Use monotonic elapsed-time measurement
+for in-process budgets. Decide whether sibling failure cancels, awaits, or
+collects the other tasks. Preserve causes when translating `ExecutionException`
+or `CompletionException`, and observe failures from submitted tasks.
+
+Sources: [Java 8 CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html),
+[Java 9 timeout methods](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletableFuture.html).
+
+## Virtual threads
+
+Stable Java 21 virtual threads suit many blocking tasks, not additional CPU
+parallelism. Use one per task instead of a virtual-thread pool, while preserving
+separate admission/queue limits and limits on database or remote-service use.
+
+On Java 21, long blocking synchronized regions and some native calls can pin a
+carrier; measure those paths before changing locks. Virtual threads are daemon
+threads, so establish who waits for completion. Test cancellation and shutdown
+with the real blocking client: closing a scoped executor may still wait after
+`Future.get` times out. Do not recommend preview structured concurrency for a
+Java 21 project whose task and build do not opt into preview.
+
+Source: [JEP 444](https://openjdk.org/jeps/444).
