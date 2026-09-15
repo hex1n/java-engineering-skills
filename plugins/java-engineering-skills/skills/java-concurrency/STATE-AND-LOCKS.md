@@ -17,6 +17,25 @@ aggregate observation fits; it is not a ticket allocator or quota guard.
 Sources: [JLS happens-before and final fields](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html),
 [Java 8 LongAdder](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/LongAdder.html).
 
+## Concurrent containers and observation
+
+Choose a container from the required operation, not merely its thread-safe
+label. ConcurrentHashMap supports atomic operations at their documented scope;
+`size() < limit` followed by insertion still is not atomic admission. Its
+iteration can reflect concurrent changes and does not provide a whole-map
+snapshot. If a cross-key invariant or consistent report is required, establish
+one synchronization/snapshot protocol followed by all participants.
+
+Keep map computation callbacks short; do not put blocking remote work inside
+an atomic map callback without accounting for contention and failure. Mutable
+values need separate protection. For producer/consumer work, use an explicitly
+bounded queue and choose `offer`, timed `offer`, or `put` from the caller's
+blocking/rejection contract. Test full queues and failed consumers; BlockingQueue
+has no universal close operation, so define termination and unblock ownership.
+
+Sources: [Java 8 ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html),
+[Java 8 BlockingQueue](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/BlockingQueue.html).
+
 ## Choose a lock from requirements
 
 | Requirement | Candidate | Constraint to verify |

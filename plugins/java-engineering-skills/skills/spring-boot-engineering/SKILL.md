@@ -13,7 +13,7 @@ The main compatibility anchors are Boot 2.7/Framework 5.3 and Boot 3.x/Framework
 ## Select the relevant reference
 
 - For version compatibility, dependency management, injection, auto-configuration,
-  and properties, read [CONFIGURATION.md](CONFIGURATION.md).
+  properties, and declarative caching, read [CONFIGURATION.md](CONFIGURATION.md).
 - For `@Transactional`, propagation, events, and `@Async`, read
   [TRANSACTIONS-AND-ASYNC.md](TRANSACTIONS-AND-ASYNC.md).
 - For MVC/WebFlux choices, validation, test context, and operational exposure,

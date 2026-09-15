@@ -44,7 +44,9 @@ Agent 可能沿用旧写法，也可能直接采用超出项目版本的新特�
 2. 建立需要保持的业务契约、状态归属和失败语义。
 3. 按需读取相应参考，选择有证据支持的实现，并验证关键并发或故障窗口。
 
-现代 Java skill 保留 24 条精选规则。每条标注首次稳定版本；preview 和 incubator 特性
+现代 Java skill 包含 32 条精选规则，其中 13 条以 Java 8 为最低版本，覆盖
+Lambda、方法引用、Stream、收集器、并行流、接口默认/静态方法和 Optional 等。
+每条标注首次稳定版本；preview 和 incubator 特性
 不作为默认建议。规则通过 Markdown 分层读取，版本解析由 agent 检查构建配置
 完成，**没有自动解析 Maven/Gradle 的 CLI**。使用插件不需要额外安装运行时；
 编译和测试 Java 项目仍需项目要求的工具链。
@@ -113,16 +115,18 @@ plugins/java-engineering-skills/
     jvm-performance/                  JVM 诊断与性能测量
 SKILLS.md                             技能范围与职责
 ROADMAP.md                            后续扩展评估
-scripts/check.py                       离线结构与引用检查
-scripts/check_examples.py              编译与契约示例验证
+scripts/check.mjs                       离线结构与引用检查
+scripts/check-examples.mjs              编译与契约示例验证
 tests/examples/                        Java 8/11/17/21 验证样例
 ```
 
 ## 验证与维护
 
+仓库脚本需要 Node.js 22+，仅使用内置模块，无需安装 npm 依赖。
+
 ```sh
-python3 scripts/check.py
-python3 -m unittest discover -s tests -p 'test_*.py'
+node scripts/check.mjs
+node --test tests/*.test.mjs
 claude plugin validate ./plugins/java-engineering-skills
 claude plugin validate ./.claude-plugin/marketplace.json
 ```
@@ -136,8 +140,8 @@ claude plugin validate ./.claude-plugin/marketplace.json
 指定本机已有 JDK，可以编译并执行部分关键契约样例：
 
 ```sh
-python3 scripts/check_examples.py --jdk /path/to/jdk21-or-newer
-python3 scripts/check_examples.py --jdk /path/to/jdk8 --release 8
+node scripts/check-examples.mjs --jdk /path/to/jdk21-or-newer
+node scripts/check-examples.mjs --jdk /path/to/jdk8 --release 8
 ```
 
 第一条命令按 Java 8、11、17、21 的目标版本分别编译，均在指定 JDK 上执行。

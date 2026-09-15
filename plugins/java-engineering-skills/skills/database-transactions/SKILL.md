@@ -17,7 +17,7 @@ all 8.0 releases as equivalent. Verify InnoDB for the transactional claims.
   read [INDEX-DESIGN.md](INDEX-DESIGN.md).
 - For slow-query evidence, execution plans, query rewrites, and pagination,
   read [SQL-OPTIMIZATION.md](SQL-OPTIMIZATION.md).
-- For invariants, idempotency, optimistic/pessimistic concurrency, and retries,
+- For invariants, idempotency, concurrency, retries, and replica-read consistency,
   read [CONSISTENCY.md](CONSISTENCY.md).
 - For ORM fetching, connection budgets, backfills, and schema
   evolution, read [QUERIES-AND-MIGRATIONS.md](QUERIES-AND-MIGRATIONS.md).

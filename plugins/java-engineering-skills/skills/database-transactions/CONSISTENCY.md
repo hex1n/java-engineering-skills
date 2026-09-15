@@ -83,3 +83,27 @@ before retrying it. A lost commit response is an unknown outcome to reconcile
 by operation identity, not permission to issue a fresh operation.
 
 Source: [InnoDB error handling](https://dev.mysql.com/doc/refman/8.0/en/innodb-error-handling.html).
+
+## Replica reads and routing
+
+Identify reads that must observe a preceding successful write: order details,
+saved idempotency outcomes, authorization state, or cache refill. A transaction
+on the primary does not make another connection to a replica immediately current.
+Semisynchronous replication acknowledgement means receipt/logging, not that
+the replica has applied and committed the transaction; other replicas may lag.
+
+For read-your-writes, route the relevant read to the authoritative writer under
+the topology's guarantees, use a verified bounded replication-progress barrier
+on the selected replica, or explicitly accept a staleness window. A fixed sleep
+is not a replication guarantee. Waiting for progress must precede a suitably
+fresh read snapshot; an already established old snapshot can remain stale.
+Specify timeout/fallback and failover behavior rather than silently serving old
+state. Check GTID/wait support against MySQL 5.7/8.0/8.4 and actual replication.
+
+Trace driver/framework routing and connection ownership. Spring `readOnly`
+does not by itself establish the intended data source or read consistency.
+Test a delayed replica, a write followed by a read on another request, and
+topology changes. Measure apply progress as well as commit latency; replica
+lag can also reintroduce old data through an otherwise correct cache protocol.
+
+Source: [MySQL 8.4 semisynchronous replication guarantees](https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html).

@@ -1,5 +1,97 @@
 # Validation record
 
+## Node.js script migration
+
+Replaced both repository-owned Python tools and their unittest suite with
+Node.js built-in modules. Current maintenance requires Node.js 22+ and no npm
+dependencies. README and contributor commands now use check.mjs,
+check-examples.mjs, and the built-in test runner. Earlier records below retain
+the commands actually executed at those points; they are historical evidence,
+not current setup instructions. No Python tool was executed for this migration.
+
+### Executed validation
+
+- On macOS with Node.js 26.0.0, node scripts/check.mjs passed: ten skills,
+  90 local links and 32 Java rules, matching the pre-migration package counts.
+- All 14 Node.js tests passed. They retain the five original package scenarios
+  and check metadata equality, anchors/code fences, rule versions/sources, and
+  CLI error handling. Fixtures run from another working directory and paths
+  containing spaces; CRLF Markdown is also checked. Deliberate corruptions must produce a failing exit status.
+- The Node.js example runner compiled and ran both Java 8 suites on native
+  Corretto 8u452. A repeated release argument was accepted and deduplicated.
+- The same runner compiled Java 8/11/17/21 targets and executed all five suites
+  on OpenJDK 25.0.2. The compiler emitted the expected obsolete Java 8 target
+  warnings. No native Java 11/17/21 execution is claimed.
+- git diff --check passed. No repository-owned Python scripts remain, and
+  current README/contributor commands contain no Python dependency.
+
+The runner retains explicit toolchain selection, compiler version checks,
+argument-vector invocation, runtime identification, and temporary output
+cleanup. All JDK subprocesses now have a 30-second timeout; previously only
+example execution was timed. Duplicate target arguments now run once instead
+of failing on a duplicate output directory. These are intentional CLI changes.
+Node.js 22 and other operating systems were not executed in this iteration;
+only Node.js 26 on macOS was exercised. Skill guidance and Java examples were
+unchanged by this migration. No commit, push or plugin installation was made.
+
+## Version 0.6.0 — Java 8 coverage and cross-skill gaps
+
+Added eight Java 8 decision rules covering functional interfaces, method
+references, stream pipelines, collectors, parallel streams, interface default
+and static methods, and Optional composition. The index now contains 32 rules,
+13 with a Java 8 minimum. Added six topics across five other skills: Redis TTL
+mutation, Spring declarative caching, Kafka failures before the listener,
+MySQL replica reads, concurrent containers, and context on reused threads.
+
+An independent agent inspected the other nine skills for coverage gaps and
+re-reviewed these additions against their entry points and selected official
+sources. It found no definite issue requiring correction in the final revision.
+This is a focused coverage and semantic review, not a completeness certificate.
+
+### Executed validation
+
+- On macOS, the permanent Java 8 suites compiled and ran on native Corretto
+  8u452. They also compiled with OpenJDK 25.0.2 `--release 8` and ran on that JDK.
+  The new Java8FunctionalChecks covers receiver evaluation and failure timing,
+  capture semantics, stream lifecycle and short-circuiting, collector conflicts
+  and nulls, sequential/parallel reductions, default-method resolution, static
+  factories, and Optional composition. The example checker now includes it.
+- An independent forward evaluation used the updated skill to modernize an
+  isolated Java 8 catalog fixture. It preserved dynamic Sink selection by
+  retaining a lambda, preserved mutable results, duplicates and encounter order,
+  and added a derived default isEmpty method. Native Corretto 8 passed 29
+  contract assertions on the original implementation and the same 29 using the
+  updated implementation with old caller binaries. Eight further assertions
+  checked defaults, including a synthetic implementation compiled against the
+  old interface. The evaluator reported no execution-blocking skill ambiguity.
+- A native Java 8 fixture with locally cached Spring Framework 5.3.31 exercised
+  real caching proxies and ConcurrentMapCacheManager. It reproduced tenant
+  leakage from an incomplete key, verified distinct tenant keys and cache hits,
+  and confirmed self-invocation bypassed the proxy.
+- A separate native Java 8 fixture verified ThreadLocal removal between reused
+  worker tasks and restoration after nested failure. It checked bounded queue
+  admission and reproduced a ConcurrentHashMap size-then-put race with two
+  synchronized callers. Owned executors terminated after the checks.
+- Package checks passed before and after the changes. The updated package has
+  ten independently distributable skills, 90 local links and 32 Java rules.
+  All five checker tests, official Codex validators for all ten skills and the
+  plugin, Claude Code plugin/marketplace validation, and git diff --check passed.
+
+The forward evaluation's code, assertions and execution log were inspected.
+Temporary evaluation and mechanism fixtures were removed after inspection;
+the permanent Java 8 functional suite remains under tests/examples.
+
+### Limits
+
+No live Redis, MySQL replication or Kafka environment was exercised. Their new
+guidance rests on linked primary sources and semantic review. The Spring check
+does not validate Redis-backed caches, distributed synchronization, transaction
+rollback, or Spring 6/Boot 3. No native Java 11/17/21 runtime, Maven lifecycle,
+production load, other operating system or installed-plugin discovery was
+tested in this iteration. Known mixed-version interface examples do not prove
+compatibility with unknown external implementations. These edits are local;
+no new commit, push, release or plugin installation was performed in this step.
+
 ## Version 0.5.2 — HTTP response-body timeout boundary
 
 Closed the independent review's P2 in the modern-Java HTTP client rule. The

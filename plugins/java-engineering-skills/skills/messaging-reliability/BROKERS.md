@@ -26,6 +26,28 @@ Sources: [Kafka delivery semantics](https://kafka.apache.org/41/design/design/),
 [Producer configuration](https://kafka.apache.org/41/configuration/producer-configs/),
 [KafkaConsumer contract](https://kafka.apache.org/41/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html).
 
+### Decode failures before the listener
+
+Distinguish consumer deserialization, framework conversion, and business-handler
+failure. Corrupt bytes or an incompatible schema can fail before the listener
+runs; its try/catch or retry annotation then cannot recover the record.
+Resolve the actual client's/container's error path, including record versus
+batch delivery. Spring Kafka's ErrorHandlingDeserializer and recovery APIs
+vary across generations; use the installed release's configuration.
+
+Recovery must retain enough bounded evidence to locate and replay the record:
+topic/partition/offset, schema identity, failure classification, and protected
+raw bytes when required. Keep payloads out of ordinary logs. A dead-letter
+publisher handling decode failures needs a serializer that accepts the raw
+bytes as well as ordinary values, otherwise recovery itself can fail or alter
+the payload. Define when recovery success permits offset advancement and what
+happens when publishing fails. Verify malformed key/value data before listener
+entry, recovery failure, restart, and replay; throwing inside a healthy listener
+does not exercise this path.
+
+Sources: [Spring Kafka deserialization recovery](https://docs.spring.io/spring-kafka/reference/kafka/serdes.html),
+[Spring Kafka 2.8.11 reference](https://docs.spring.io/spring-kafka/docs/2.8.11/reference/pdf/spring-kafka-reference.pdf).
+
 ## RabbitMQ
 
 Publisher confirms and consumer acknowledgements are independent. A publisher

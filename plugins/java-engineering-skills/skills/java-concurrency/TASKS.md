@@ -46,6 +46,26 @@ or `CompletionException`, and observe failures from submitted tasks.
 Sources: [Java 8 CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html),
 [Java 9 timeout methods](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletableFuture.html).
 
+## Context on reused threads
+
+Capture the required context at the submission boundary and install it for the
+task through the framework's supported decorator or a scoped wrapper. Copy only
+the intended values; captured mutable state is not a stable snapshot. On every
+exit, including failure, restore the previous context for a nested scope or
+remove it when this task owns the previously absent value. Unconditional clearing
+can destroy an outer caller's context, including under caller-runs execution.
+
+InheritableThreadLocal copies initial values at thread creation, not at every
+executor submission. A pool worker can therefore retain an earlier parent's
+context. ThreadLocal propagation is not transaction propagation and does not
+grant authority to a client-supplied tenant. Test two tasks with different
+contexts on one reused worker, a throwing task, and nested restoration; inspect
+the next task's context after completion. Choose a wrapper that understands the
+specific context API's empty/unset semantics.
+
+Sources: [Java 8 ThreadLocal](https://docs.oracle.com/javase/8/docs/api/java/lang/ThreadLocal.html),
+[Java 8 InheritableThreadLocal](https://docs.oracle.com/javase/8/docs/api/java/lang/InheritableThreadLocal.html).
+
 ## Virtual threads
 
 Stable Java 21 virtual threads suit many blocking tasks, not additional CPU

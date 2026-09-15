@@ -13,6 +13,30 @@ connections. Blocking commands and transaction state can require dedicated
 connections even when ordinary calls support sharing. Do not infer client
 thread safety from Redis server command serialization.
 
+## Expiration during writes
+
+Decide whether each write preserves, replaces, or removes the key's TTL.
+Plain successful `SET` discards an existing expiration; use an explicit expiry
+for a fresh lifetime or version-supported `KEEPTTL` when preserving it is the
+contract. `KEEPTTL` requires Redis 6.0+ and does not give a persistent/new key
+an expiration. `INCR` preserves an existing TTL but does not expire a new counter.
+Inspect actual client overloads instead of assuming a Java object's TTL follows
+its value automatically.
+
+For a counter with a window, define whether expiry is anchored to a time bucket,
+first request, or last activity. `INCR` followed by a separate conditional
+`EXPIRE` leaves a failure gap that can create a permanent counter. Use a short
+atomic protocol for the required count/expiry decision, validating inputs before
+writes; resetting expiry on every increment changes the window. Check retries
+after ambiguous completion and loss through eviction/failover separately.
+`EXPIRE NX/XX/GT/LT` require Redis 7.0+; newer syntax is not a legacy-server fix.
+Test value replacement, missing/persistent keys, repeated increments, and the
+failure boundary against the selected server/client.
+
+Sources: [SET and KEEPTTL](https://redis.io/docs/latest/commands/set/),
+[EXPIRE update semantics](https://redis.io/docs/latest/commands/expire/),
+[INCR expiration gap](https://redis.io/docs/latest/commands/incr/).
+
 ## Cluster and scripts
 
 Multi-key operations and scripts commonly require keys in the same Redis Cluster

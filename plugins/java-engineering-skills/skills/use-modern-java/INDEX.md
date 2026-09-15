@@ -30,3 +30,11 @@ This is a curated catalog, not an inventory of every JDK change.
 | 8 | [map-compute](JAVA8.md#map-compute) | Local map initialization or accumulation matches the API's null semantics. |
 | 8 | [optional-lazy](JAVA8.md#optional-lazy) | An optional fallback should run only when the value is absent. |
 | 8 | [mutable-stream-result](JAVA8.md#mutable-stream-result) | Downstream code requires a mutable stream result. |
+| 8 | [lambda-contracts](JAVA8-FUNCTIONAL.md#lambda-contracts) | Small behavior fits a functional contract; preserve capture, scope, and failures. |
+| 8 | [method-references](JAVA8-FUNCTIONAL.md#method-references) | A direct delegation is clearer by name and receiver evaluation stays equivalent. |
+| 8 | [stream-pipelines](JAVA8-FUNCTIONAL.md#stream-pipelines) | A cohesive transformation benefits from map/filter/flatMap without hidden effects. |
+| 8 | [collector-contracts](JAVA8-FUNCTIONAL.md#collector-contracts) | Map/group/aggregate results need explicit duplicate, null, order, and mutation policies. |
+| 8 | [parallel-streams](JAVA8-FUNCTIONAL.md#parallel-streams) | Splittable computation has valid reduction semantics and measured parallel benefit. |
+| 8 | [interface-default-methods](JAVA8-FUNCTIONAL.md#interface-default-methods) | Shared derived behavior fits all implementations and interface evolution is verified. |
+| 8 | [interface-static-methods](JAVA8-FUNCTIONAL.md#interface-static-methods) | An interface owns a factory/helper whose declaring-type call fits the API. |
+| 8 | [optional-composition](JAVA8-FUNCTIONAL.md#optional-composition) | Normal absence should compose without null Optional values or hidden failures. |

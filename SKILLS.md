@@ -5,13 +5,13 @@
 
 | Skill | 主要职责 | 关键内容 |
 |---|---|---|
-| [use-modern-java](plugins/java-engineering-skills/skills/use-modern-java/SKILL.md) | 语言与标准库版本兼容 | Java 8–21 的 24 条规则、Maven/Gradle 目标判断、preview 边界 |
+| [use-modern-java](plugins/java-engineering-skills/skills/use-modern-java/SKILL.md) | 语言与标准库版本兼容 | Java 8–21 的 32 条规则，含函数式接口、方法引用、Stream、默认方法及版本判断 |
 | [java-design](plugins/java-engineering-skills/skills/java-design/SKILL.md) | 模块设计与模式选择 | GoF 23 种模式的选型索引、接口契约、组合与继承、状态转换 |
-| [java-concurrency](plugins/java-engineering-skills/skills/java-concurrency/SKILL.md) | JVM 内并发正确性 | 可见性与原子性、锁、线程池、异步、取消和虚拟线程 |
-| [redis-engineering](plugins/java-engineering-skills/skills/redis-engineering/SKILL.md) | 缓存和 Redis 协作机制 | 一致性、缓存击穿、Lua/事务、租约与 fencing、集群和序列化 |
-| [messaging-reliability](plugins/java-engineering-skills/skills/messaging-reliability/SKILL.md) | 消息与业务效果的可靠性 | 幂等、outbox/inbox、重试、顺序、Kafka/RabbitMQ/RocketMQ |
-| [spring-boot-engineering](plugins/java-engineering-skills/skills/spring-boot-engineering/SKILL.md) | Spring 容器与框架机制 | Boot 2.7/3.x、自动配置、事务代理、异步、MVC/WebFlux、测试和 Actuator |
-| [database-transactions](plugins/java-engineering-skills/skills/database-transactions/SKILL.md) | MySQL / InnoDB 设计与持久化 | 表设计、字段/约束/软删除、联合与覆盖索引、执行计划与 SQL 优化、事务和迁移 |
+| [java-concurrency](plugins/java-engineering-skills/skills/java-concurrency/SKILL.md) | JVM 内并发正确性 | 可见性、原子性、锁、并发容器、有界队列、任务上下文、异步和虚拟线程 |
+| [redis-engineering](plugins/java-engineering-skills/skills/redis-engineering/SKILL.md) | 缓存和 Redis 协作机制 | 一致性、缓存击穿、TTL 写入语义、Lua/事务、租约、集群和序列化 |
+| [messaging-reliability](plugins/java-engineering-skills/skills/messaging-reliability/SKILL.md) | 消息与业务效果的可靠性 | 幂等、outbox/inbox、重试、解码失败、顺序、Kafka/RabbitMQ/RocketMQ |
+| [spring-boot-engineering](plugins/java-engineering-skills/skills/spring-boot-engineering/SKILL.md) | Spring 容器与框架机制 | Boot 2.7/3.x、自动配置、事务代理、声明式缓存、异步、Web 与测试 |
+| [database-transactions](plugins/java-engineering-skills/skills/database-transactions/SKILL.md) | MySQL / InnoDB 设计与持久化 | 表设计、约束、索引、SQL、事务、迁移和副本读取一致性 |
 | [java-testing](plugins/java-engineering-skills/skills/java-testing/SKILL.md) | 测试方案与执行 | JUnit、Mockito 与 mock/stub/fake/spy、Testcontainers、事务验证、异步和故障注入 |
 | [java-api-security](plugins/java-engineering-skills/skills/java-api-security/SKILL.md) | 接口契约与访问控制 | HTTP/RPC、认证与资源授权、租户隔离、幂等接口、输入与资源限制 |
 | [jvm-performance](plugins/java-engineering-skills/skills/jvm-performance/SKILL.md) | 性能诊断与优化验证 | JFR/jcmd、CPU 与等待、堆与原生内存、GC、JMH 与负载测量 |

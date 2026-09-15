@@ -62,9 +62,9 @@ topic count and passing package checks are not measures of semantic quality.
 
 ### Run the relevant checks
 
-Run `python3 scripts/check.py`, `python3 -m unittest discover -s tests -p 'test_*.py'`,
+Run `node scripts/check.mjs`, `node --test tests/*.test.mjs`,
 and the available runtime manifest validators
-documented in the README. The checker uses Python's standard library only.
+documented in the README. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
 
 For changed examples, compile a complete surrounding example at the claimed
 release and test the material behavior boundary. A modern JDK's `--release`

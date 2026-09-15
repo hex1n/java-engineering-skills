@@ -52,3 +52,32 @@ secret values out of diagnostic output; names and origins are usually enough
 to diagnose binding.
 
 Source: [Externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html).
+
+## Declarative caching
+
+Resolve cache enablement, CacheManager/CacheResolver, provider, and proxy mode.
+In ordinary proxy mode, self-invocation bypasses `@Cacheable` just as it bypasses
+other advice. Check actual hits/misses through the managed entry point.
+
+A key must distinguish every input/context that changes the cached result,
+including tenant or audience where relevant. Default argument-based keys do
+not automatically include a tenant held in ThreadLocal. For methods sharing a
+cache region, also prevent collisions between different operations. Set TTL,
+size, serialization, null-value and error policies through the chosen provider.
+An annotation alone does not establish those properties.
+
+`@CachePut` executes the method and updates the cache; `@CacheEvict` normally
+evicts after successful method invocation, while `beforeInvocation=true`
+changes that timing. Successful return is not necessarily database commit.
+Inspect advice ordering and transaction-aware cache behavior; rollback and a
+crash between commit and cache update still need the declared consistency policy.
+
+`@Cacheable(sync=true)` (Framework 4.3+) delegates synchronized loading to the
+provider and has restrictions such as no `unless`. It does not establish
+cross-instance exclusion or database consistency by itself. Test the actual
+provider and topology before claiming one load globally. Verify same-key calls,
+cross-tenant inputs, self-invocation, and rollback after a cache-changing call.
+
+Sources: [Spring cache abstraction](https://docs.spring.io/spring-framework/reference/integration/cache.html),
+[Framework 5.3 Cacheable](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/cache/annotation/Cacheable.html),
+[Framework 5.3 CacheEvict](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/cache/annotation/CacheEvict.html).

@@ -12,9 +12,9 @@ guidance applies to Java 8; virtual threads require stable Java 21.
 
 ## Select the relevant mechanism
 
-- For visibility, compound updates, lock choice, and deadlocks, read
+- For visibility, concurrent containers, compound updates, lock choice, and deadlocks, read
   [STATE-AND-LOCKS.md](STATE-AND-LOCKS.md).
-- For executors, futures, deadlines, and virtual threads, read
+- For executors, futures, deadlines, task context, and virtual threads, read
   [TASKS.md](TASKS.md).
 
 Inspect callers, synchronization already in use, and representative failure
