@@ -8,7 +8,10 @@ description: Implement, refactor, or diagnose Spring Boot services using their a
 Inspect the effective Boot parent/BOM/plugin version, Spring modules, Java
 release, application type, and active configuration before choosing APIs.
 The main compatibility anchors are Boot 2.7/Framework 5.3 and Boot 3.x/Framework
-6.x. Confirm exact patch requirements; examples are not upgrade instructions.
+6.x. Boot 2.7 is where a Java 8 service stays: it requires Java 8 and runs up to
+Java 21, while Boot 3 requires Java 17. Treat a major-version migration as its
+own task with its own runtime decision, not a step inside an unrelated change.
+Confirm exact patch requirements; examples are not upgrade instructions.
 
 ## Select the relevant reference
 

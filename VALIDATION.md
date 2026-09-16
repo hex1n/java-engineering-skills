@@ -72,6 +72,22 @@ error and four statements that needed narrowing or a matching source:
   Windows `core.autocrlf=true` checkout already stores as CRLF, producing
   `\r\r\n` and a false failure. The fixture now normalizes line endings first.
 
+### Spring Boot lines before 2.7
+
+The skill anchored on Boot 2.7 and 3.x without stating which line a Java 8
+service belongs to, and covered nothing between 2.0 and 2.7. The entry now
+records that Boot 2.7 requires Java 8 and runs up to Java 21 while Boot 3
+requires Java 17, and `CONFIGURATION.md` adds a section on the 2.1–2.7 changes
+that alter behavior silently or stop a build: bean-definition overriding,
+JUnit 5 and constructor binding, the validation starter split, the 2.4 config
+data rewrite and vintage-engine removal, SQL script initialization, prohibited
+circular references with `PathPatternParser`, and the `spring.factories`
+deprecation. Every claim comes from that release's official notes, the config
+data migration guide, or a Spring blog post; the sources are listed in the
+section. "Boot 2.7 is the last line supporting Java 8" is an inference from the
+2.7 and 3.0 requirements, so the text states those requirements instead.
+No Boot upgrade was executed.
+
 ### Installation commands
 
 `claude plugin marketplace add .` fails with `Invalid marketplace source
