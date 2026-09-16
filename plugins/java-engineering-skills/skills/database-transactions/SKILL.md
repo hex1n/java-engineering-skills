@@ -1,6 +1,6 @@
 ---
 name: database-transactions
-description: Design or repair MySQL/InnoDB schemas, indexes, SQL queries, and transactions in Java services. Use for table design, slow SQL and execution plans, lost updates, idempotency, ORM persistence, or database migrations.
+description: Design or repair MySQL/InnoDB or OceanBase MySQL-mode schemas, indexes, SQL queries, and transactions in Java services. Use for table design, slow SQL and execution plans, lost updates, idempotency, ORM persistence, or database migrations.
 ---
 
 # MySQL Design and Transactions
@@ -10,6 +10,8 @@ charset/collation, schema/indexes, Connector/J/ORM versions, and transaction
 manager before reasoning about SQL. This skill focuses on MySQL 8.0/8.4 and
 legacy 5.7 migration; resolve exact update-level behavior rather than treating
 all 8.0 releases as equivalent. Verify InnoDB for the transactional claims.
+When `VERSION()` contains `OceanBase`, read [OCEANBASE.md](OCEANBASE.md)
+before applying any locking, isolation, DDL, timeout, or plan guidance below.
 
 - For row identity, types, relationships, business constraints, and soft deletion,
   read [TABLE-DESIGN.md](TABLE-DESIGN.md).

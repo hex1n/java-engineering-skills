@@ -11,7 +11,7 @@
 | [redis-engineering](plugins/java-engineering-skills/skills/redis-engineering/SKILL.md) | 缓存和 Redis 协作机制 | 一致性、缓存击穿、TTL 写入语义、Lua/事务、租约、集群和序列化 |
 | [messaging-reliability](plugins/java-engineering-skills/skills/messaging-reliability/SKILL.md) | 消息与业务效果的可靠性 | 幂等、outbox/inbox、重试、解码失败、顺序、Kafka/RabbitMQ/RocketMQ |
 | [spring-boot-engineering](plugins/java-engineering-skills/skills/spring-boot-engineering/SKILL.md) | Spring 容器与框架机制 | Boot 2.7/3.x、自动配置、事务代理、声明式缓存、异步、Web 与测试 |
-| [database-transactions](plugins/java-engineering-skills/skills/database-transactions/SKILL.md) | MySQL / InnoDB 设计与持久化 | 表设计、约束、索引、SQL、事务、迁移和副本读取一致性 |
+| [database-transactions](plugins/java-engineering-skills/skills/database-transactions/SKILL.md) | MySQL / InnoDB 设计与持久化 | 表设计、约束、索引、SQL、事务、迁移和副本读取一致性；OceanBase 4.2 MySQL 模式差异 |
 | [java-testing](plugins/java-engineering-skills/skills/java-testing/SKILL.md) | 测试方案与执行 | JUnit、Mockito 与 mock/stub/fake/spy、Testcontainers、事务验证、异步和故障注入 |
 | [java-api-security](plugins/java-engineering-skills/skills/java-api-security/SKILL.md) | 接口契约与访问控制 | HTTP/RPC、认证与资源授权、租户隔离、幂等接口、输入与资源限制 |
 | [jvm-performance](plugins/java-engineering-skills/skills/jvm-performance/SKILL.md) | 性能诊断与优化验证 | JFR/jcmd、CPU 与等待、堆与原生内存、GC、JMH 与负载测量 |

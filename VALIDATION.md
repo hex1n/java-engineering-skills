@@ -1,6 +1,53 @@
 # Validation record
 
-## Unreleased — reference accuracy corrections
+## Unreleased — reference accuracy corrections and OceanBase MySQL mode
+
+### OceanBase MySQL-mode reference
+
+Added `database-transactions/OCEANBASE.md` with a pointer from the skill entry,
+which now names OceanBase MySQL mode in its description. The reference covers
+version identification, isolation and write conflicts, locking reads, timeouts,
+auto-increment, online/offline DDL, partitioned indexes, plan evidence, and
+weak-consistency reads. Each section cites OceanBase V4.2.1 LTS documentation;
+the 4.3.5 page is cited only for DDL blocking, which the 4.2.1 page leaves
+unstated. English documentation pages returned HTTP 429, so the Chinese V4.2.1
+pages were used. Two of the cited pages were re-fetched to confirm the quoted
+passages and their V4.2.1 label.
+
+Read-only checks on a 4.2.1.10 MySQL tenant:
+
+- `VERSION()` returned `5.7.25-OceanBase-v4.2.1.10`, `OB_VERSION()` returned
+  `4.2.1.10`, and `ob_compatibility_mode` was `MYSQL`.
+- Session values matched the documented defaults: READ-COMMITTED,
+  `ob_query_timeout` 10 s, `ob_trx_timeout` and `ob_trx_idle_timeout` 24 h,
+  `ob_trx_lock_timeout` -1, `auto_increment_cache_size` 1,000,000.
+- `EXPLAIN` accepted `FOR UPDATE NOWAIT`, `FOR UPDATE WAIT 1`, and
+  `LOCK IN SHARE MODE`; the last was planned as a `FOR UPDATE` operator.
+  `FOR UPDATE SKIP LOCKED`, `FOR SHARE`, and `EXPLAIN ANALYZE` were syntax
+  errors. A CTE with a window function was accepted, and
+  `EXPLAIN EXTENDED_NOADDR` returned outline data and pruned index names.
+- The application account was denied `GV$OB_SQL_AUDIT`.
+
+A fresh evaluator received only the skill directory and a task on a
+`5.7.25-OceanBase-v4.2.1.10` database: claim jobs across four instances, update
+two million rows nightly, and widen a DECIMAL column. It identified OceanBase
+rather than MySQL 5.7, claimed jobs with a conditional lease `UPDATE` instead of
+`SKIP LOCKED`, `FOR SHARE`, or `GET_LOCK()`, batched the update under the
+10-second statement timeout with `ROLLBACK` after timeouts, treated the type
+change as offline DDL with a write-outage rehearsal, and avoided REPEATABLE
+READ and `EXPLAIN ANALYZE`. It also reported that the reference did not say
+whether READ COMMITTED re-evaluates an `UPDATE` predicate after a lock wait.
+The two 4.2.1 pages contradict each other on that point, so the reference now
+states both, requires a two-connection test, and adds owner fencing.
+
+Not executed: concurrent write conflicts, including that READ COMMITTED
+re-evaluation question, ERROR 6235 retries, lock-wait and deadlock errors,
+statement/transaction timeout recovery, auto-increment jumps, or any DDL; only
+syntax and plan acceptance were observed. Other 4.2.1 pages disagree on the
+older 100 s transaction timeout and on the default index scope; the reference
+follows the pages that agree with each other and with the tenant's values.
+
+### Reference accuracy corrections
 
 An independent line-by-line review of every reference file found one factual
 error and four statements that needed narrowing or a matching source:
@@ -27,8 +74,9 @@ error and four statements that needed narrowing or a matching source:
 
 ### Executed validation
 
-- On Windows with Node.js 26.7.0, node scripts/check.mjs passed: ten skills,
-  90 local links and 32 Java rules.
+- On Windows with Node.js 26.7.0, node scripts/check.mjs passed after both
+  changes: ten skills, 91 local links and 32 Java rules. `claude plugin
+  validate` passed for the plugin.
 - All 14 Node.js tests passed on an LF checkout and on a `core.autocrlf=true`
   checkout. Before the fixture change, the CRLF checkout failed that test.
 - Java examples were unchanged. On the same tree, check-examples passed Java 8
