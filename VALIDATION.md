@@ -810,3 +810,48 @@ No Java 11, 17, or 21 runtime was executed; those release-target samples ran on
 JDK 25. No Maven/Gradle build, framework integration, virtual-thread load test,
 Windows/Linux execution, or installed-plugin end-to-end session was performed.
 The plugin has been packaged and validated locally, not published or installed.
+
+## Unreleased — 2026-09-16 API design and review boundaries
+
+Updated `java-api-security` from an endpoint-review-oriented entrypoint to
+explicit design/implementation and review paths sharing trust-boundary and
+validation principles. New designs establish caller/resource policy, writable
+fields and disclosure, effects/retries, work budgets, and enforcement ownership
+before DTO/controller implementation. Design-only completion is a concrete
+contract and validation plan, not a claim of active runtime protection.
+
+Corrected the unconditional owner/tenant SQL predicate prescription: require
+the established resource policy, with scoped SQL or equivalent trusted
+enforcement as appropriate. Full-scope service authorization needs evidence;
+missing gateway/RPC policy is a verification gap. Review outputs separate
+confirmed defects, conditional risks, and missing evidence, with severity
+based on supported impact rather than an absent local check alone.
+
+The existing authorization, tenant isolation, REST resource-limit, and error
+contract references remain the supporting sources. No framework-version
+guarantees were added. SQL chunking versus total aggregation and per-item
+timeouts versus total work are engineering inferences from those budget
+boundaries, not claims of vendor-provided protection.
+
+Manual scenario walkthroughs of the final text covered a new user-scoped async
+command, an existing full-scope internal RPC with unavailable external policy,
+and an unlimited batch query with chunked SQL. The instructions respectively
+require a concrete delegated-authority/retry/denial contract, an explicit
+policy evidence gap, and assessment of cumulative work plus compatibility.
+These are author walkthroughs, not independent agent executions.
+
+Executed on Windows:
+
+- Official skill `quick_validate.py`: passed.
+- `node scripts/check.mjs`: passed for 10 skills and 98 local links.
+- `node --test tests/check.test.mjs tests/check-examples.test.mjs`: 14 passed.
+  The initial sandbox attempt could not spawn child processes (`EPERM`);
+  the authorized rerun outside the sandbox passed.
+- Claude plugin and marketplace manifest validators: both passed.
+- `git diff --check`: passed.
+
+These checks validate packaging and check-script behavior, not API security
+enforcement or agent decision quality. No independent agent/Claude evaluation,
+live RPC/HTTP test, or Java compilation was performed for this documentation
+change. Source only; no plugin installation, cache synchronization, release,
+version bump, or Git commit was performed.

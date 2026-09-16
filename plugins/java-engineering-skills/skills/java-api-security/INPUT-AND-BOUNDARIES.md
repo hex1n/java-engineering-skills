@@ -23,6 +23,14 @@ at the layers that allocate them. A DTO constraint runs too late to prevent
 an oversized body from exhausting a parser. Apply rate/quota limits to the
 authenticated actor and relevant resource; an attacker-controlled header is
 not a trusted quota identity. Scope cost controls to the exposed operation.
+
+Assess the whole request's work budget: SQL chunking can still aggregate an
+unbounded result, and a per-expression timeout can multiply across rules,
+items, or replay steps. Follow cumulative CPU/time, downstream calls, retained
+memory, response bytes, and cancellation after caller timeout. Account for
+effective transport limits, admission quotas, and normal workloads before
+assigning impact. Derive proposed bounds from supported workloads/capacity;
+coordinate a contract change when clients currently rely on unlimited input.
 [OWASP REST resource limits](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html).
 
 ## Outbound URLs and parser boundaries
@@ -47,8 +55,13 @@ archive extraction only when those parsers are actually in the request path.
 ## Errors and observability
 
 Return the established public error contract while recording a correlation
-identifier and actionable internal reason. Redact credentials and sensitive
-payload fields; structured logging still needs CR/LF and field-boundary
+identifier and actionable internal reason. Trace exceptions through shared
+wrappers: a resource-scope rejection can still disclose the target's actual
+owner, tenant, or other protected fields. Compare returned fields with the
+caller's established read entitlement and disclosure policy. Preserve stable
+error codes while keeping unauthorized details in access-controlled internal
+diagnostics. Redact credentials and sensitive payload fields; structured
+logging still needs CR/LF and field-boundary
 handling for attacker-controlled values. Keep audit identity server-derived.
 Metric labels are output too: raw user IDs, URLs, or request bodies in labels
 leak data.

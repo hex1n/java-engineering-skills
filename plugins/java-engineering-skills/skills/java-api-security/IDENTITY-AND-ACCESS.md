@@ -18,13 +18,21 @@ needed for authorization must be verified and mapped deliberately.
 [Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/6.4/servlet/oauth2/resource-server/jwt.html),
 [Boot 3.4.0 JWT configuration](https://github.com/spring-projects/spring-boot/blob/v3.4.0/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/security/oauth2/resource/servlet/OAuth2ResourceServerJwtConfiguration.java).
 
-Every repository read or write that takes a client-supplied ID takes the
-server-derived owner or tenant in the same predicate
-(`WHERE id = :id AND tenant_id = :tenant`), and the service maps an empty
-result to the API's not-found or denied response. A role check in the filter
-chain decides which operations exist; the predicate decides which rows.
-Enforce access at a trusted server boundary on every access path. Deny when required
-identity or policy evidence is missing. Unpredictable IDs reduce guessing;
+Establish the access model before choosing an enforcement shape. A service
+authorized for the full resource set has a different resource scope from one acting
+for an end user. Verify who grants that privilege and which methods/resources
+it covers; an internal network location alone does not grant it. Where a
+gateway or RPC platform owns authorization, inspect its trusted identity,
+resource policy, and coverage of reachable direct calls. Missing configuration
+in the reviewed repository leaves that responsibility unverified.
+
+For owner/tenant-scoped access, bind client-supplied resource IDs to trusted
+scope, for example `WHERE id = :id AND tenant_id = :tenant`, or verify an
+equivalent server-side policy enforcement path. Matching a child resource to the
+parent named in the request only proves resource consistency; it does not
+establish the caller's entitlement to either resource. Map denials/missing rows according
+to the API's disclosure policy. At runtime, reject requests lacking identity
+or policy required by the established model. Unpredictable IDs reduce guessing;
 they do not replace authorization. Test direct calls as well as routed calls
 when both are reachable.
 [OWASP authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html).
@@ -41,7 +49,12 @@ Scope cached data and saved idempotency results by their real audience. Tenant
 scope alone is insufficient for owner-private data within a tenant: authorize
 the resource on hits too, or use a safely scoped authorization-aware cache.
 Check membership/policy changes under the declared revocation semantics.
-Tenant isolation tests need two tenants and two owners within one tenant.
+Keep permission checks ahead of idempotent early returns; replaying a frozen
+business result need not rerun business validation. For asynchronous work,
+identify whether execution uses delegated caller scope or a privileged service
+mandate, and how admission, payload integrity, and revocation semantics protect
+that scope. Tenant isolation tests need two tenants and two owners within one
+tenant when that access model applies.
 [OWASP tenant boundaries](https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html).
 
 For an update, prevent a check-then-write race from changing which object is
