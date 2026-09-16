@@ -12,13 +12,22 @@ deliberate `TransactionTemplate` boundary; avoid self-injection solely to hide
 the design problem. Test through the managed entry point and assert database
 state on failure.
 
+Move the loop below to another bean, or hand it an injected `OrderWriter`
+reference, so the call crosses the proxy:
+
 ```java
-// Java 8-compatible shape; existing repository details are omitted.
+// Java 8-compatible shape; repository details omitted.
 @Service
 class OrderWriter {
+    public void importAll(List<Order> orders) throws IOException {
+        for (Order order : orders) {
+            save(order); // same-object call: no proxy, no transaction, no rollback
+        }
+    }
+
     @Transactional(rollbackFor = IOException.class)
     public void save(Order order) throws IOException {
-        // The whole required database mutation belongs inside this boundary.
+        // Runs in a transaction only when called through the Spring proxy.
     }
 }
 ```
@@ -64,7 +73,7 @@ configured equivalent, accounting for its connection/lock cost. This still
 does not make the callback durable or let its failure undo the original commit.
 [Spring 5.3 after-commit resource semantics](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/transaction/support/TransactionSynchronization.html#afterCommit()).
 
-`@Async` also normally requires proxy interception; self-invocation stays local.
+`@Async` follows the same proxy rule.
 Thread-bound imperative transactions do not propagate to a new worker thread.
 Define the executor, queue/rejection behavior, failure observation, and required
 context propagation. Reactive transaction context follows different mechanisms

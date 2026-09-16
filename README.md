@@ -116,10 +116,14 @@ plugins/java-engineering-skills/
     java-testing/                     JUnit、Mockito、集成与故障验证
     java-api-security/                接口契约与访问控制
     jvm-performance/                  JVM 诊断与性能测量
+  evals/                             claude plugin eval 用例（早期访问功能）
 SKILLS.md                             技能范围与职责
 ROADMAP.md                            后续扩展评估
+CONTRIBUTING.md                       规则准入与验证流程
+VALIDATION.md                         各版本执行过的验证与缺口
 scripts/check.mjs                       离线结构与引用检查
 scripts/check-examples.mjs              编译与契约示例验证
+tests/*.test.mjs                       检查脚本的回归测试
 tests/examples/                        Java 8/11/17/21 验证样例
 ```
 
@@ -133,6 +137,12 @@ node --test tests/*.test.mjs
 claude plugin validate ./plugins/java-engineering-skills
 claude plugin validate ./.claude-plugin/marketplace.json
 ```
+
+`plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例
+（`prompt.md` 加 `graders/*.md`）：OceanBase 抢任务、Boot 2.3 升 2.7、JVM
+jstat 误读三个场景，各自检查对应 skill 是否触发以及结论是否避开了埋点。
+该命令目前是早期访问功能，账号未开通时会提示 `early access`；开通后
+`claude plugin eval ./plugins/java-engineering-skills` 即可运行。
 
 离线检查覆盖两个插件清单及 marketplace 的对应关系、所有 skill 的包内引用、
 未被入口引用的资料，以及现代 Java 规则索引与正文的版本一致性。

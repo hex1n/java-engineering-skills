@@ -1,10 +1,13 @@
 # OceanBase MySQL mode
 
-This reference covers OceanBase 4.2.x tenants in MySQL mode, checked against
-the 4.2.1 LTS documentation and a 4.2.1.10 tenant. Feature availability moves
-between 4.x minor releases; resolve the deployed version before reusing a rule.
-The InnoDB guidance elsewhere in this skill applies only where this file does
-not replace it.
+This reference covers OceanBase 4.2.x tenants in MySQL mode, following the
+4.2.1 LTS documentation. Feature availability moves between 4.x minor
+releases; resolve the deployed version before reusing a rule. This file
+replaces the isolation-and-locks, retry, and replica-read sections of
+CONSISTENCY.md, the plan-evidence paragraphs of SQL-OPTIMIZATION.md, the
+online-DDL rules in INDEX-DESIGN.md and QUERIES-AND-MIGRATIONS.md, and
+generated-column indexing in TABLE-DESIGN.md. Everything else in the skill
+applies unchanged.
 
 ## Identify the engine and version
 
@@ -26,13 +29,11 @@ READ UNCOMMITTED is unsupported, and changing isolation inside a transaction
 fails with ERROR 1568. Reads take no locks.
 
 Under READ COMMITTED, an `UPDATE` that reaches a row locked by another
-transaction waits for it. The two 4.2.1 pages disagree on what follows a
-commit: the isolation overview re-executes the statement with a new snapshot,
-while the MySQL-mode comparison judges the predicate on the statement-snapshot
-version, unlike InnoDB's semi-consistent read. Until a two-connection test on
-the target version shows the predicate re-evaluated, the affected-row count of
-a conditional `UPDATE` alone does not grant exclusive ownership; also check the
-owner column when completing the work. Under REPEATABLE READ or
+transaction waits for it; whether it then re-evaluates its predicate against
+the newly committed row is not settled by the 4.2.1 documentation. Until a
+two-connection test on the target shows re-evaluation, the affected-row count
+of a conditional `UPDATE` alone does not grant exclusive ownership; fence the
+completing write on the owner column. Under REPEATABLE READ or
 SERIALIZABLE, when another transaction commits a conflicting write first, the
 later writer fails with `ERROR 6235 … can't serialize access` instead of
 waiting and updating the new version; retry the whole transaction. Snapshot
@@ -50,8 +51,8 @@ Sources: [isolation overview](https://www.oceanbase.com/docs/common-oceanbase-da
 ## Locking reads and lock waits
 
 The 4.2.1 MySQL syntax is `FOR UPDATE [WAIT n | NOWAIT | NO_WAIT]` or
-`LOCK IN SHARE MODE`. `FOR SHARE` and `SKIP LOCKED` are rejected on 4.2.1.10;
-`SKIP LOCKED` appears in later 4.x documentation. Claim jobs with a conditional
+`LOCK IN SHARE MODE`. `FOR SHARE` and `SKIP LOCKED` are not in the 4.2.1
+grammar; `SKIP LOCKED` appears in later 4.x documentation. Claim jobs with a conditional
 `UPDATE` of a lease/owner column, check the affected-row count, and fence the
 completing write on the owner (see the READ COMMITTED caveat above).
 `LOCK IN SHARE MODE` is emulated with write locks, so "shared" readers block
@@ -77,7 +78,7 @@ Sources: [SELECT syntax](https://www.oceanbase.com/docs/common-oceanbase-databas
 backfill, report, or lock wait) fails with ERROR 4012 and is rolled back. Set a
 larger session value for a known long operation or split the work into bounded
 batches. `ob_trx_timeout` and `ob_trx_idle_timeout` default to 24 hours in 4.x;
-some pages still show the older 100 s and 120 s. Read the session values.
+read the session values.
 
 After a transaction timeout (ERROR 4012, OceanBase -6210) or an idle timeout
 (ERROR 6002), the application must issue `ROLLBACK` before the connection can
@@ -107,7 +108,7 @@ changing partitioning, adding an auto-increment column, and adding or dropping
 a stored generated column. A statement that mixes one offline change with
 online ones runs offline. Offline DDL rebuilds the table through a hidden
 table and changes its `table_id`. The 4.3.5 documentation disallows DML while
-it runs; the 4.2.1 page is silent, so plan a write outage and rehearse it.
+it runs and the 4.2.1 page does not say; plan a write outage and rehearse it.
 
 Sources: [4.2.1 online and offline DDL](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000000252799),
 [column type changes](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000000221444),
@@ -134,8 +135,8 @@ estimated rows and time plus `range_key`/`range_cond` and index-back details;
 `EXPLAIN EXTENDED_NOADDR` adds outline data, candidate and pruned indexes, and
 the statistics version. Estimates are not measurements. For executed work, read
 `GV$OB_SQL_AUDIT` (elapsed, queue and execute time, retries, plan-cache hit)
-and `GV$SQL_PLAN_MONITOR`, or `DBMS_XPLAN.DISPLAY_CURSOR`; application accounts
-often lack access to these views. The plan cache parameterizes literals and
+and `GV$SQL_PLAN_MONITOR`, or `DBMS_XPLAN.DISPLAY_CURSOR`; these views need a
+privileged account. The plan cache parameterizes literals and
 reuses plans per tenant and node, so compare representative parameter values.
 `CREATE OUTLINE` binds a plan to a statement.
 

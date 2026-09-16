@@ -1,6 +1,6 @@
 ---
 name: redis-engineering
-description: Design, implement, or diagnose Redis caching, atomic operations, expiration, and distributed leases in backend services. Use for cache consistency, stampedes, Redis contention, or Redis-backed coordination.
+description: Redis caching, TTL semantics, atomic scripts, and leases in backend services. Use for cache consistency, miss storms, TTL lost on write, or lease ownership under expiry and failover.
 ---
 
 # Redis Engineering
@@ -18,11 +18,14 @@ A Redis feature's availability is independent of the project's Java release.
 - Key/schema design, serialization, cluster behavior, and bounded operations:
   [OPERATIONS.md](OPERATIONS.md).
 
-Identify the authoritative data store, acceptable staleness, and the effect
-of losing Redis state. Distinguish an optimization such as suppressing duplicate
-cache fills from enforcing a business invariant such as preventing duplicate
-settlement. Choose a mechanism that remains correct under the stated failure
-model; a cache lock alone does not create a database transaction.
+1. Write the contract in three lines: the source of truth, the staleness
+   budget, and what the caller sees when the key is missing, stale, or the
+   server is down.
+2. Classify the use. An optimization (duplicate fills, contention) may rely on
+   Redis alone; an invariant (duplicate settlement, a quota) needs a database
+   constraint or a fencing token from [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md).
+3. Open the file for that contract. Steps 1 and 2 are done when each line
+   names a table, a key pattern, or a code path.
 
 Inspect the existing client configuration, timeouts, serializers, and retry
 policy. Preserve key and value compatibility with other producers/consumers.

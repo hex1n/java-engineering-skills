@@ -32,11 +32,10 @@ concurrent-request behavior, and retention horizon. Reject incompatible reuse
 instead of replaying a result for another request. Authenticate and authorize
 before exposing any saved result, including on retry.
 
-For effects inside one database, a unique scoped operation record, business
-mutation, and saved outcome commit together. A competing identical request
-waits/reconciles under the chosen database semantics; a crash before commit
-leaves no successful claim. A lost commit response is resolved by the same
-key. Persisting a cache flag before SQL can suppress work that never committed.
+The database side (the unique operation record committed with the mutation,
+competing-request arbitration, and lost-commit reconciliation) belongs to
+database-transactions. This file owns only the protocol: key scope, pending
+and expired-key responses, and retention.
 External effects require durable dispatch and recipient-enforced idempotency
 or reconciliation; a local key alone cannot make them atomic.
 

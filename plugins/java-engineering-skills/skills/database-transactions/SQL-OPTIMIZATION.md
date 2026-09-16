@@ -85,6 +85,6 @@ the resulting plan; equivalent predicate forms can optimize differently.
 Compare old/new results for ties, nulls, empty input, duplicates, boundaries,
 and supported concurrent-change semantics. Measure the same workload/data and
 record cache state, repetitions, variance, server work, and response volume.
-Avoid clearing shared caches or changing global planner settings to manufacture
-a result. If no target database is available, provide candidate SQL/indexes
+Measure under the cache state and planner settings the workload actually runs
+with. If no target database is available, provide candidate SQL/indexes
 and verification steps, with no claimed measured speedup.

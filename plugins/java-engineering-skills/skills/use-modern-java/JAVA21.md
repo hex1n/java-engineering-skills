@@ -108,20 +108,13 @@ try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
 }
 ```
 
-Use a thread per task rather than pooling virtual threads. Replacing a bounded
-pool can remove its concurrency limit: retain explicit admission control or
-resource limits (for example, a semaphore around calls to a constrained
-downstream service). Review task volume, cancellation, deadlines, thread-local
-context, and expensive per-thread caches. Verify integration with the actual
+Use a thread per task rather than pooling virtual threads, and keep the
+admission control the bounded pool used to provide (a semaphore around a
+constrained downstream service). On **Java 21**, blocking while holding a
+monitor or inside certain native calls pins the carrier thread, and virtual
+threads are daemon threads. The [executor closure rule](JAVA12-20.md#executor-close)
+applies. Task lifecycle, cancellation, thread-local context, and pinning
+investigation belong to java-concurrency; verify integration with the actual
 framework/runtime before changing its executor.
-
-On **Java 21**, blocking while holding a monitor or inside certain native calls
-can pin a carrier thread. Investigate long/frequent blocking synchronized
-regions under representative load; do not mechanically replace every lock.
-Virtual threads are daemon threads, so establish completion ownership. The
-[executor closure rule](JAVA12-20.md#executor-close) applies: scope exit waits,
-and a timeout on `Future.get` alone does not bound that wait. Cancel work and
-verify the blocking operation responds to cancellation before claiming a
-deadline is preserved.
 
 Source: [JEP 444](https://openjdk.org/jeps/444).

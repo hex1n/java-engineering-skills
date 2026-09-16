@@ -50,8 +50,8 @@ Return the established public error contract while recording a correlation
 identifier and actionable internal reason. Redact credentials and sensitive
 payload fields; structured logging still needs CR/LF and field-boundary
 handling for attacker-controlled values. Keep audit identity server-derived.
-Use bounded labels for metrics; raw user IDs, URLs, or request bodies can leak
-data and create unbounded metric cardinality.
+Metric labels are output too: raw user IDs, URLs, or request bodies in labels
+leak data.
 
 Verification pairs each allowed case with a meaningful counterexample: extra
 privileged field, oversized decoded body, unauthorized cached resource,

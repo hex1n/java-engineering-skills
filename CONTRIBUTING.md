@@ -64,7 +64,9 @@ topic count and passing package checks are not measures of semantic quality.
 
 Run `node scripts/check.mjs`, `node --test tests/*.test.mjs`,
 and the available runtime manifest validators
-documented in the README. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
+documented in the README. When `claude plugin eval` is available to the
+account, run the cases under `plugins/java-engineering-skills/evals/` and add
+a case for any new trigger or trap the change introduces. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
 
 For changed examples, compile a complete surrounding example at the claimed
 release and test the material behavior boundary. A modern JDK's `--release`

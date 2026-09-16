@@ -25,7 +25,28 @@ final class Checkout {
 
 Application wiring selects the implementation. Introduce a registry only when
 selection is dynamic; validate duplicate keys and specify an unknown-carrier
-response. A strategy does not need a corresponding abstract factory, builder,
+response:
+
+```java
+final class ShippingQuotes {
+    private final Map<String, ShippingQuote> byCarrier;
+
+    ShippingQuotes(Map<String, ShippingQuote> byCarrier) {
+        this.byCarrier = Collections.unmodifiableMap(new LinkedHashMap<>(byCarrier));
+    }
+
+    ShippingQuote forCarrier(String carrier) {
+        ShippingQuote quote = byCarrier.get(carrier);
+        if (quote == null) {
+            throw new IllegalArgumentException("no shipping quote for carrier " + carrier);
+        }
+        return quote;
+    }
+}
+```
+
+One `Map` makes a duplicate carrier impossible at construction; an unknown
+carrier fails at lookup, and the test names both cases. A strategy does not need a corresponding abstract factory, builder,
 and singleton. A factory earns its place when it owns a real construction
 protocol or compatible family of objects.
 
@@ -41,9 +62,9 @@ it for retries changes the number and timing of effects. Define which
 exceptions qualify, whether the operation is idempotent, and the total deadline.
 Retry around a transaction can differ from transaction around retry.
 
-A proxy may intercept calls only through its entry point. For a Spring-managed
-object, verify the actual proxy mode and invocation path rather than assuming
-every method call receives interception. Preserve resource ownership when
+A proxy may intercept calls only through its entry point; for a Spring-managed
+object, interception depends on the invocation path (spring-boot-engineering).
+Preserve resource ownership when
 wrapping `Closeable` objects; test wrapper order and failure propagation.
 
 Sources: [Java FilterInputStream wrapper contract](https://docs.oracle.com/javase/8/docs/api/java/io/FilterInputStream.html),
@@ -55,8 +76,7 @@ For an order lifecycle, write allowed transitions such as
 `CREATED -> PAID -> SHIPPED` with their preconditions before choosing enum or
 state classes. Specify duplicate commands, terminal states, and concurrent
 transitions. A database-backed transition needs an atomic conditional update
-or equivalent concurrency mechanism; a Java state object alone cannot enforce
-that invariant across processes.
+or equivalent concurrency mechanism (database-transactions).
 
 An undo command needs an actual inverse or compensation contract. Publishing
 an event, charging an external service, or shipping a parcel cannot be undone

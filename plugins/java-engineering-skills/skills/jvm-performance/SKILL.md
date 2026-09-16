@@ -1,6 +1,6 @@
 ---
 name: jvm-performance
-description: Diagnose Java service CPU, latency, allocation, GC, memory, or thread bottlenecks and verify performance changes. Use for profiling, JVM incident evidence, capacity regressions, or JMH benchmark design.
+description: Diagnose Java service CPU, latency, allocation, GC, or memory problems and verify performance changes. Use for profiling, blocked-thread and GC pause evidence, JVM incident triage, capacity regressions, or JMH benchmark design.
 ---
 
 # JVM Performance
@@ -8,10 +8,7 @@ description: Diagnose Java service CPU, latency, allocation, GC, memory, or thre
 Define the symptom and measurement window before choosing a tool: latency
 distribution, completed throughput, errors, CPU, memory, or blocked progress.
 Record workload, service build, JDK vendor/update, collector, JVM flags, and
-CPU/memory limits. Keep production and test/runtime differences explicit. The
-flag inventory also shows agents that listen on the network, such as a JDWP or
-JMX agent bound to every interface; report that exposure even in a
-performance task.
+CPU/memory limits. Keep production and test/runtime differences explicit.
 
 - For version-compatible tools, bounded recordings, and collection impact,
   read [COLLECTION.md](COLLECTION.md).
@@ -20,9 +17,15 @@ performance task.
 - For JMH, realistic load, and before/after comparisons, read
   [MEASUREMENT.md](MEASUREMENT.md).
 
-Start with existing metrics, traces, recordings, and logs. Form a hypothesis
-that predicts an observation; collect the smallest evidence that distinguishes
-it from a competing explanation. A busy thread, large heap, or frequent GC
+Step 1, before any attach: from the live command line take `-Xmx`, `-Xloggc`,
+and any `-agentlib:jdwp` or `jmxremote` flag; read `/proc/<pid>/status`
+(VmRSS, Threads), `/proc/<pid>/limits`, and the cgroup memory limit and CPU
+quota files (COLLECTION.md, "Start without attaching"). Done when you can
+state RSS against the limit, the full-GC count and longest pause from the GC
+log, and whether the process was CPU-throttled in the window. Then write the
+hypothesis as "if <cause>, then <metric> shows <value> during <window>", name
+the one alternative that predicts a different value, and collect only the
+evidence that separates the two. A busy thread, large heap, or frequent GC
 alone does not establish the cause of user-visible latency.
 
 Use the target JVM's supported diagnostic tools and options. Java 8 update and

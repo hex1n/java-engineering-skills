@@ -6,21 +6,30 @@ request to upgrade an existing deployment.
 
 ## Kafka
 
-Ordering is within a partition. Key partitioning, producer retries, and
-consumer concurrency must preserve the required business order. Check producer
-idempotence, acknowledgements, in-flight requests, retries, and broker replica
-settings together rather than relying on one flag.
+Ordering is within a partition. Order holds per partition per producer when
+`enable.idempotence=true`, which requires `acks=all`, `retries` above 0, and
+`max.in.flight.requests.per.connection` at most 5; with idempotence off and
+in-flight above 1, a retried batch can land behind a later one. Durability
+needs `acks=all` together with the topic's `min.insync.replicas` above 1. Read
+the effective producer config from the client's startup log rather than the
+property file, and keep consumer concurrency at or below the partition count.
 
 Kafka transactions can bind produced Kafka records and consumed offsets;
-transactional consumers must use the intended isolation setting. This scope
-does not include an ordinary external database transaction. Handle fencing,
+transactional consumers must use the intended isolation setting. An external
+database effect follows [DELIVERY.md](DELIVERY.md). Handle fencing,
 abort/retry, and transactional identity lifecycle using the actual client API.
 
 When records are processed asynchronously, commit only offsets that do not
 skip unfinished earlier records in that partition. The committed offset marks
-the next record to consume. Rebalance/revocation needs a policy for in-flight
-work and ownership; auto-commit plus work still running can lose that work on
-restart. A retry topic may relax ordering.
+the next record to consume. A handler that exceeds `max.poll.interval.ms`
+(default 300000 ms) gets its consumer evicted: the partition moves, the same
+records are redelivered to another instance, and the slow instance's commit
+fails with `CommitFailedException` after its work already ran, which is the
+standard duplicate-processing loop. Keep handler time under the interval by
+lowering `max.poll.records` (default 500) or handing work to an owned executor
+with pause/resume, and on revocation commit only the offsets of finished
+records. Auto-commit plus work still running can lose that work on restart. A
+retry topic relaxes ordering.
 
 Sources: [Kafka delivery semantics](https://kafka.apache.org/41/design/design/),
 [Producer configuration](https://kafka.apache.org/41/configuration/producer-configs/),

@@ -43,11 +43,17 @@ resource must reject stale writes, it must enforce a monotonically ordered
 fencing token or another atomic version/uniqueness condition. Tokens merely
 logged or checked in Redis do not fence an external database/API.
 
-Asynchronous replication/failover, pauses, clock behavior, and renewal failure
-belong in the safety argument. A watchdog does not prove perpetual ownership.
-Redis-based coordination can reduce contention while a database constraint
-enforces correctness. Do not describe a distributed lock algorithm as universally
-safe without specifying its failure assumptions and resource enforcement.
+Renewal fails in two shapes. A Redisson lock acquired with an explicit
+`leaseTime` is never renewed and expires under a holder that is still working;
+a watchdog-renewed lock (no `leaseTime`, `lockWatchdogTimeout` 30 s by
+default) stops renewing when the holder's JVM pauses or loses its connection,
+and the holder is not told it lost ownership. Name which shape the code is in
+and how the protected write is rejected after loss; asynchronous replication
+and failover add a third path where two holders exist at once. Redis-based
+coordination reduces contention while a database constraint enforces
+correctness, so state the failure assumptions and the resource-side
+enforcement with every lock design.
+[Redisson locks](https://redisson.pro/docs/data-and-services/locks-and-synchronizers/).
 
 Source: [Redis distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/).
 

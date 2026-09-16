@@ -24,8 +24,21 @@ of measured work only when they are not part of the actual operation.
 Return the result or consume it with a JMH Blackhole so unused work is not
 eliminated. Use representative runtime inputs rather than compile-time
 constants; otherwise constant folding can remove the intended computation.
-Do not blindly add an inner loop: it can change optimization and amortize
-costs differently from a real call.
+An added inner loop changes optimization and amortizes costs differently from
+a real call; measure the real call. A minimal benchmark that satisfies both
+rules:
+
+```java
+@State(Scope.Benchmark)
+public class ParseBench {
+    @Param({"12.50", "1234567.89"}) String input; // runtime input, so the parse is not folded
+
+    @Benchmark
+    public BigDecimal parse() {
+        return new BigDecimal(input);             // returned, so the work is not dead code
+    }
+}
+```
 [dead-code sample](https://github.com/openjdk/jmh/blob/master/jmh-samples/src/main/java/org/openjdk/jmh/samples/JMHSample_08_DeadCode.java),
 [constant-folding sample](https://github.com/openjdk/jmh/blob/master/jmh-samples/src/main/java/org/openjdk/jmh/samples/JMHSample_10_ConstantFold.java).
 

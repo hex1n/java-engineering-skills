@@ -1,15 +1,17 @@
 ---
 name: java-api-security
-description: Design, implement, or review Java service API contracts and access controls. Use for HTTP/RPC compatibility, authentication, object and tenant authorization, idempotent endpoints, or untrusted request handling.
+description: Design, implement, or review Java service API contracts and access controls. Use for HTTP/RPC compatibility, authentication, object and tenant authorization, idempotency-key request contracts, or untrusted request handling.
 ---
 
 # Java API and Security
 
-Establish the operation, consumers, trust boundaries, and business effects.
-Inspect Java target/runtime, web or RPC stack, serializer, validation library,
-security configuration, gateway behavior, and deployed versions. Preserve
-existing public contracts unless the task authorizes a compatible migration
-or a specified breaking change.
+For each endpoint in scope write one line:
+`<verb> <resource> as <principal kind> via <MVC | WebFlux | RPC stack> -> <committed effect>`.
+Then locate the class that authenticates it (filter chain or RPC filter), the
+serializer bean, and the validation starter in the effective POM. Done when
+every endpoint line names its authentication checkpoint and its authorization
+predicate. Preserve existing public contracts unless the task authorizes a
+compatible migration or a specified breaking change.
 
 - For HTTP/RPC semantics, schema evolution, retries, and endpoint idempotency,
   read [CONTRACTS.md](CONTRACTS.md).

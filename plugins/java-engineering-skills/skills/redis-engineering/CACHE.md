@@ -16,17 +16,19 @@ Deleting after commit alone does not exclude this timeline. Select a bounded
 staleness policy, version-aware fill/invalidation, or a stronger read/write
 protocol from the actual requirement. An arbitrary delayed second delete is
 not a proof that all late readers have finished. A process can also die between
-database commit and invalidation; durable invalidation needs replayable work
-such as a transactional outbox/CDC plus a recovery policy.
+database commit and invalidation; durable invalidation is an outbox or CDC
+problem (messaging-reliability).
 
 Source: [Cache-aside considerations](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside).
 
-## Miss storms and negative caching
+## Stampedes and negative caching
 
-For a hot missing key, coalesce concurrent fills where ownership is clear.
-Across instances, a bounded lease can reduce duplicate work but requires a
-timeout/fallback when the holder fails. Apply expiry jitter to spread bulk
-expiration; it does not solve one exceptionally hot key.
+A stampede is many callers filling the same missing key at once. Inside one
+process, coalesce the fills on a per-key lock or a loading cache's
+`computeIfAbsent`; across instances, take a bounded lease from
+[ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md) and serve the stale value or
+the database read while another holder fills. Apply expiry jitter to spread
+bulk expiration; it does not solve one exceptionally hot key.
 
 Represent negative results explicitly with a suitable shorter freshness window,
 and invalidate them when the resource is created. Scope keys by tenant and

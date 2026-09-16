@@ -1,12 +1,14 @@
 ---
 name: java-testing
-description: Design, implement, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, Testcontainers, transaction assertions, asynchronous verification, or unreliable backend tests.
+description: Design, implement, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, Testcontainers, asserting committed state from a test, asynchronous verification, or unreliable backend tests.
 ---
 
 # Java Testing
 
-Turn a behavior claim into an observable check at the boundary that owns it.
-Preserve the requested scope: a test plan identifies cases and execution needs;
+Write the claim as one sentence naming the observable and its owner (the
+committed row count after `save()`, the JSON the configured `ObjectMapper`
+emits), then pick the smallest runner that can see that observable. The claim
+is testable when a wrong implementation would change that observable. Preserve the requested scope: a test plan identifies cases and execution needs;
 a test implementation includes running the affected checks when available.
 
 Inspect production and test source targets, the actual test JVM, build plugins,
@@ -22,11 +24,9 @@ on a newer JDK do not prove compatibility with the oldest supported runtime.
 - For asynchronous outcomes, concurrency, fault injection, and flaky tests,
   read [ASYNC-AND-FAILURES.md](ASYNC-AND-FAILURES.md).
 
-Choose the smallest boundary that can falsify the claim. Pure calculations
-need no application context. Serialization contracts need the real mapper
-configuration. SQL isolation needs the target database and independent
-transactions. Authentication needs the configured security chain. A mock at
-the claimed mechanism removes the evidence the test was meant to produce.
+Choose the smallest boundary that can falsify the claim; the claim-to-boundary
+table is in [INTEGRATION.md](INTEGRATION.md). A mock at the claimed mechanism
+removes the evidence the test was meant to produce.
 
 Start from public outcomes and failure conditions. Control time, randomness,
 and dependency responses at existing seams; add a seam only when it reduces

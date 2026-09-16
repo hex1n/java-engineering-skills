@@ -1,6 +1,6 @@
 ---
 name: java-design
-description: Design or refactor Java modules and choose design patterns from concrete variation, lifecycle, and caller contracts. Use for module design, extensibility, pattern selection, and structural refactoring.
+description: Choose a Java module interface or GoF pattern from concrete variation, lifecycle, and caller contracts. Use for extensibility asks, pattern selection, or structural refactoring that must keep public contracts.
 ---
 
 # Java Design
@@ -11,9 +11,11 @@ release and runtime; examples here work with Java 8 unless stated otherwise.
 
 ## Work from the contract
 
-1. Inspect representative callers, implementations, tests, and relevant build
-   settings. Identify the current change pressure: what varies independently,
-   which invariant spans operations, and who owns state and resources.
+1. Read the module's callers, implementations, and tests. Write the change
+   pressure as three lines, each pointing at a class or method: what varies
+   independently, which invariant spans more than one operation, and who owns
+   each piece of state or resource. Done when every line names code, not a
+   category.
 2. Describe the smallest useful interface, including failure modes, ordering,
    mutability, thread safety, and lifecycle. Keep implementation decisions
    behind that interface when callers do not need them.

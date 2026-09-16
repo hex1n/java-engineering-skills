@@ -1,6 +1,6 @@
 ---
 name: java-concurrency
-description: Implement or diagnose Java shared-state concurrency, locks, executors, asynchronous composition, and cancellation. Use for race conditions, deadlocks, thread-pool saturation, or concurrent task design.
+description: In-process Java concurrency, shared state, JVM locks, executors, CompletableFuture, and cancellation. Use for race conditions, deadlocks, or thread-pool saturation inside one JVM; row locks belong to database-transactions and Redis leases to redis-engineering.
 ---
 
 # Java Concurrency
@@ -17,10 +17,12 @@ guidance applies to Java 8; virtual threads require stable Java 21.
 - For executors, futures, deadlines, task context, and virtual threads, read
   [TASKS.md](TASKS.md).
 
-Inspect callers, synchronization already in use, and representative failure
-evidence before changing a primitive. State the happens-before relationship
-or atomic operation that protects each shared invariant. Coordinate all access
-paths; adding a lock to only the writer does not protect an unlocked reader.
+1. List every shared field and every path that reads or writes it: callers,
+   callbacks, scheduled tasks, shutdown hooks.
+2. For each invariant over those fields, write the happens-before edge or the
+   single atomic operation that protects it, and the monitor, lock, or atomic
+   that every listed path uses. Done when every path has a row; a path
+   without one is the defect or the next test.
 
 Use thread confinement or immutable published state when practical. Choose
 locks/atomics for the remaining requirement, preserving interruption, failure,
@@ -36,6 +38,7 @@ rejection, and shutdown. For a performance claim, measure the relevant workload
 and contention rather than infer speed from a primitive's name.
 
 Report the interleaving or overload condition addressed, tests executed, and
-remaining assumptions. Stress tests can expose defects but cannot prove all
-possible schedules correct. Use existing concurrency testing/profiling tools
-when a difficult memory-model or performance question warrants them.
+remaining assumptions. For a memory-model claim, run the interleaving under
+jcstress; for a throughput or contention claim, measure with JMH or a sampling
+profiler on the real workload and report the numbers with the tool and
+configuration used.

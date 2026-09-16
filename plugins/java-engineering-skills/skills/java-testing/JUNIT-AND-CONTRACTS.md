@@ -35,14 +35,21 @@ empty vs absent, null vs default, exact limits, duplicate identity, encounter
 order, mutation after return, and decimal scale when contractually relevant.
 Choose only boundaries that affect this task.
 
-A Java 8 example for a time-based rule uses an injected `Clock` and explicit
-zone; advancing the test clock exercises expiry without wall-clock sleeps:
+A Java 8 example: the rule takes a `Clock` in its constructor, and the test
+advances an offset clock instead of sleeping:
 
 ```java
-Clock clock = Clock.fixed(Instant.parse("2025-01-01T00:00:00Z"), ZoneOffset.UTC);
-Instant deadline = clock.instant().plusSeconds(30);
-boolean expired = !Clock.offset(clock, Duration.ofSeconds(30))
-        .instant().isBefore(deadline); // Exact deadline is expired by this contract.
+class TokenPolicy {
+    private final Clock clock;
+    TokenPolicy(Clock clock) { this.clock = clock; }
+    boolean expired(Instant issuedAt) {
+        return !clock.instant().isBefore(issuedAt.plusSeconds(30)); // exact deadline counts as expired
+    }
+}
+
+Clock t0 = Clock.fixed(Instant.parse("2025-01-01T00:00:00Z"), ZoneOffset.UTC);
+assertFalse(new TokenPolicy(t0).expired(t0.instant()));
+assertTrue(new TokenPolicy(Clock.offset(t0, Duration.ofSeconds(30))).expired(t0.instant()));
 ```
 
 This models a business deadline, not a guarantee about distributed clock

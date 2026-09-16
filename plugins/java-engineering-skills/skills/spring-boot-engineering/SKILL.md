@@ -1,17 +1,16 @@
 ---
 name: spring-boot-engineering
-description: Implement, refactor, or diagnose Spring Boot services using their actual Boot and Spring versions. Use for dependency wiring, auto-configuration, configuration binding, transactional proxies, async execution, web integration, and Spring tests.
+description: Spring Boot wiring, auto-configuration, property binding, @Transactional and @Cacheable proxies, @Async, Boot 2.x release-line changes, MVC/WebFlux, and Spring test slices. Use when a Spring annotation, bean, or context behaves unexpectedly, or when crossing a Boot release line.
 ---
 
 # Spring Boot Engineering
 
 Inspect the effective Boot parent/BOM/plugin version, Spring modules, Java
 release, application type, and active configuration before choosing APIs.
-The main compatibility anchors are Boot 2.7/Framework 5.3 and Boot 3.x/Framework
-6.x. Boot 2.7 is where a Java 8 service stays: it requires Java 8 and runs up to
-Java 21, while Boot 3 requires Java 17. Treat a major-version migration as its
-own task with its own runtime decision, not a step inside an unrelated change.
-Confirm exact patch requirements; examples are not upgrade instructions.
+The main compatibility anchors are Boot 2.7/Framework 5.3, which requires
+Java 8, and Boot 3.x/Framework 6.x, which requires Java 17; per-line details
+are in CONFIGURATION.md. Confirm exact patch requirements; examples are not
+upgrade instructions.
 
 ## Select the relevant reference
 
@@ -22,14 +21,18 @@ Confirm exact patch requirements; examples are not upgrade instructions.
 - For MVC/WebFlux choices, validation, test context, and operational exposure,
   read [WEB-TESTING-OPERATIONS.md](WEB-TESTING-OPERATIONS.md).
 
-Trace the actual call through framework entry points. An annotation's presence
-does not establish that its interception ran. Check the created bean, proxy,
-executor/transaction manager, and relevant configuration for the source set
-being exercised. Read-only diagnosis should report the evidence and proposed
-repair; implement it only when the task asks for changes.
+Trace the call from the framework entry point to the annotated method and
+name the proxy it crosses. A call that stays inside the same object, whether
+self-invocation, a private method, or a `@PostConstruct` body, reaches the
+method with no advice applied. Done when every `@Transactional`, `@Async`,
+and `@Cacheable` method in scope has a named caller outside its own class.
+Check the created bean, proxy, executor/transaction manager, and relevant
+configuration for the source set being exercised.
 
-Preserve dependency alignment, wire contracts, application type, transaction
-scope, and established lifecycle ownership. A request for modern Java syntax
+Before reporting done, diff these against the baseline and list any that
+moved: managed dependency versions, bean names and qualifiers, servlet versus
+reactive stack, each `@Transactional` boundary, and which bean owns each
+executor, pool, and shutdown hook. A request for modern Java syntax
 does not by itself require a Boot major-version migration or an MVC-to-reactive
 rewrite. For Boot 4+, resolve the matching official documentation before
 transferring older configuration or annotation behavior.

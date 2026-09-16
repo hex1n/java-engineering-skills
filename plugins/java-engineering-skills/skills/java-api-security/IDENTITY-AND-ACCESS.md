@@ -9,10 +9,12 @@ and dependency failures using the deployed framework's configuration. Claims
 needed for authorization must be verified and mapped deliberately.
 [Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html).
 
-Check the action against resource ownership and applicable policy on every
-access path. A role alone can be insufficient: an account reader may read its
-own account but not another account. Enforce access at a trusted server boundary
-and scope repository lookups/mutations when possible. Deny when required
+Every repository read or write that takes a client-supplied ID takes the
+server-derived owner or tenant in the same predicate
+(`WHERE id = :id AND tenant_id = :tenant`), and the service maps an empty
+result to the API's not-found or denied response. A role check in the filter
+chain decides which operations exist; the predicate decides which rows.
+Enforce access at a trusted server boundary on every access path. Deny when required
 identity or policy evidence is missing. Unpredictable IDs reduce guessing;
 they do not replace authorization. Test direct calls as well as routed calls
 when both are reachable.

@@ -47,9 +47,11 @@ Sources: [MySQL duplicate-key behavior](https://dev.mysql.com/doc/refman/8.0/en/
 
 ## Isolation and locks
 
-Read phenomena depend on isolation, indexes, and access pattern. Assess
-lost updates, write skew, and phantom-sensitive predicates from actual
-interleavings. An isolation name alone is not a proof of the invariant.
+For each invariant, write the two-connection interleaving that breaks it
+(read/read/write/write for a lost update, two reads of disjoint rows then two
+writes for write skew, a count then an insert for a phantom) and run it on
+the target engine. The invariant holds only when the second connection
+blocks, fails, or affects zero rows.
 
 For pessimistic locking, keep the transaction short and acquire resources in
 a consistent order. Verify the rows/ranges and index paths locked by the engine;

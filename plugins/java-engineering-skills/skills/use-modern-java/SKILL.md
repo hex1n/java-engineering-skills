@@ -1,6 +1,6 @@
 ---
 name: use-modern-java
-description: Apply version-compatible Java language and standard-library idioms when writing, modifying, or modernizing Java code targeting Java 8–21. Use for Java modernization and incremental upgrades while preserving existing contracts.
+description: Version-compatible Java 8–21 language and standard-library idioms. Use when writing or modernizing Java code, or when a change must follow the module's compiler release rather than the developer's JDK.
 ---
 
 # Use Modern Java
@@ -18,12 +18,14 @@ selected stable language and Java SE library features through Java 21.
    rules still apply on newer Java releases.
 3. Follow the linked rule details before applying a candidate transformation.
    Each explains the intended use, behavior-sensitive exceptions, an example,
-   and its primary source. Load only the relevant sections.
-4. Prefer the applicable idiom for new code and in-scope edits. Preserve explicit
-   project conventions and observable behavior: mutability, null handling,
-   encounter order, exceptions, resource ownership, concurrency, and public or
-   serialized contracts. A newer API alone is not a reason to rewrite a working
-   subsystem, change dependencies, or raise the Java baseline.
+   and its primary source.
+4. Apply the idiom to new code and to lines already inside the edit. For each
+   replacement, name the behavior it keeps (mutability, null handling,
+   encounter order, exceptions, resource ownership, concurrency, public or
+   serialized contracts) and keep the old form wherever one of these would
+   change. Done when every replaced line carries that note; the Java
+   baseline, dependencies, and untouched subsystems stay as VERSION.md found
+   them.
 5. Verify changed code with the module's existing build and focused tests at
    the established target. For a migration, exercise the affected contract
    boundaries from the rule details. Report the target, relevant changes, and
@@ -35,20 +37,13 @@ Compilation on the developer's newer JDK alone does not establish compatibility.
 
 ## Coverage boundary
 
-The index uses the **first stable release**, not a preview introduction.
-Use preview or incubator features only when the task calls for them and their
+Use preview or incubator features only when the task names them and their
 exact release and compile/test/runtime settings are established. In Java 21,
 string templates, scoped values, structured concurrency, unnamed patterns,
 and unnamed classes/instance main methods are outside this stable catalog.
-Do not enable preview merely to apply a guideline.
 
 Framework and library migrations (for example, Spring, persistence mappings,
 Lombok, or an HTTP client replacement) need evidence from the project's actual
 dependency versions in addition to these Java SE rules. Android API/desugaring
 support must be checked separately. For Java beyond 21, reuse covered rules
 and consult official documentation for additional features.
-
-This skill uses ordinary Markdown references and requires no helper runtime.
-Its version index and on-demand explanations are inspired by
-[JetBrains/go-modern-guidelines](https://github.com/JetBrains/go-modern-guidelines);
-the Java guidance is based on the linked OpenJDK and Java SE sources.

@@ -26,45 +26,43 @@ behavior silently or stop a build:
 
 - 2.1 disables bean definition overriding; `spring.main.allow-bean-definition-overriding`
   restores it.
+  [2.1 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.1-Release-Notes).
 - 2.2 makes JUnit 5 the default in `spring-boot-starter-test` and adds
   constructor binding through `@ConstructorBinding`.
+  [2.2 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.2-Release-Notes).
 - 2.3 stops pulling the validation starter through the web and WebFlux
   starters, so `javax.validation` imports need the starter declared.
+  [2.3 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.3-Release-Notes).
 - 2.4 rewrites `application.properties`/`application.yml` processing: property
   sources are added in declaration order rather than profile-activation order,
   external files always override packaged ones, `spring.profiles` becomes
-  `spring.config.activate.on-profile`, and `spring.profiles.active` is no
-  longer allowed in a profile-specific document. `spring.config.use-legacy-processing`
+  `spring.config.activate.on-profile`, and neither `spring.profiles.active`
+  nor `spring.profiles.include` is allowed in a profile-specific document;
+  express "profile x also activates y" as `spring.profiles.group.x=y` in a
+  non-profile-specific document. `spring.config.use-legacy-processing`
   restores the old logic and survives until Boot 3. The same release removes
   JUnit 5's vintage engine from the test starter, so JUnit 4 tests stop running
   rather than fail.
+  [2.4 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.4-Release-Notes),
+  [config data migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-Config-Data-Migration-Guide).
 - 2.5 redesigns `schema.sql`/`data.sql` support and runs `data.sql` before
   Hibernate initializes.
+  [2.5 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.5-Release-Notes).
 - 2.6 prohibits circular references, recoverable with
   `spring.main.allow-circular-references`, and switches MVC path matching to
   `PathPatternParser`. `spring.mvc.pathmatch.matching-strategy` returns MVC to
   `AntPathMatcher`, but actuator endpoints are not configurable that way, and
   Actuator with Springfox may fail to start.
+  [2.6 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.6-Release-Notes).
 - 2.7 deprecates auto-configuration entries in `spring.factories` in favor of
   `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`,
   while still honoring both. That one is preparation for Boot 3, not a 2.7 break.
+  [2.7 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.7-Release-Notes).
 
 After crossing any of these, verify the resolved configuration and the executed
-test count rather than a successful start; the 2.4 and 2.4-vintage changes both
-present as silently different behavior. Boot 2.7.18 ended open-source support
-for the 2.x line, with commercial support extended through the end of 2026;
-treat a stay on 2.7 as a decision with a support boundary, not a default.
-
-Sources: [2.1 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.1-Release-Notes),
-[2.2](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.2-Release-Notes),
-[2.3](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.3-Release-Notes),
-[2.4](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.4-Release-Notes),
-[2.5](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.5-Release-Notes),
-[2.6](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.6-Release-Notes),
-[2.7](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.7-Release-Notes),
-[config data migration](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-Config-Data-Migration-Guide),
-[2.7.18 announcement](https://spring.io/blog/2023/11/23/spring-boot-2-7-18-available-now/),
-[2.7 support extension](https://spring.io/blog/2024/09/27/spring-boot-2-7-support-period-extended/).
+test count; the 2.4 config-data rewrite and the vintage-engine removal both
+survive a successful start. Treat a stay on 2.7 as a decision with a support
+boundary; read the current support policy at spring.io rather than this file.
 
 ## Dependencies and auto-configuration
 
@@ -105,8 +103,9 @@ Source: [Externalized configuration](https://docs.spring.io/spring-boot/referenc
 ## Declarative caching
 
 Resolve cache enablement, CacheManager/CacheResolver, provider, and proxy mode.
-In ordinary proxy mode, self-invocation bypasses `@Cacheable` just as it bypasses
-other advice. Check actual hits/misses through the managed entry point.
+Self-invocation bypasses `@Cacheable` (proxy rule in
+[TRANSACTIONS-AND-ASYNC.md](TRANSACTIONS-AND-ASYNC.md)). Check actual
+hits/misses through the managed entry point.
 
 A key must distinguish every input/context that changes the cached result,
 including tenant or audience where relevant. Default argument-based keys do

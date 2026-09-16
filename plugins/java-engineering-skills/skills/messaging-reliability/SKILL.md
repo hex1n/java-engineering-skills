@@ -1,6 +1,6 @@
 ---
 name: messaging-reliability
-description: Implement or diagnose reliable message production and consumption, including duplicates, ordering, retries, acknowledgements, and database-to-broker delivery. Use with Kafka, RabbitMQ, RocketMQ, or equivalent backend messaging systems.
+description: Outbox, inbox, idempotent consumers, retries, dead letters, and ordering for Kafka, RabbitMQ, RocketMQ, or equivalent brokers in Java services. Use for duplicate or lost messages, acknowledgement and offset semantics, or database-to-broker delivery.
 ---
 
 # Messaging Reliability

@@ -6,7 +6,7 @@
 |---|---|---|
 | Stub | A dependency must return a selected value or failure | Exercises the caller's response, not the real dependency |
 | Mock | A meaningful outbound interaction needs verification | A recorded call does not prove a remote effect or database commit |
-| Fake | A small working substitute makes stateful scenarios clearer | In-memory storage does not reproduce MySQL constraints, locks, or isolation |
+| Fake | A small working substitute makes stateful scenarios clearer | Substitutes the dependency's contract, not the real engine (see INTEGRATION.md) |
 | Spy | A legacy seam needs a narrowly scoped partial replacement | Unstubbed methods execute real code and can cause side effects |
 
 These describe test roles, not necessarily different libraries: one Mockito

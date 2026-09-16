@@ -3,10 +3,14 @@
 ## Executor capacity and ownership
 
 Choose capacity from CPU work, blocking time, downstream limits, and acceptable
-queue delay. Define queue size and rejection behavior together. A fixed pool
-with an unbounded queue can accumulate work indefinitely; increasing
-`maximumPoolSize` does not grow past the core size while an unbounded queue
-continues accepting tasks.
+queue delay. Define queue size and rejection behavior together.
+`Executors.newFixedThreadPool` and `newSingleThreadExecutor` queue without
+bound; `newCachedThreadPool` creates threads without bound. Construct
+`ThreadPoolExecutor` directly with a sized queue (`ArrayBlockingQueue` or
+`LinkedBlockingQueue(capacity)`), a `ThreadFactory` that names threads after
+the pool, and a chosen `RejectedExecutionHandler`; `maximumPoolSize` takes
+effect only once that bounded queue is full.
+[Executors factory methods](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Executors.html).
 
 `CallerRunsPolicy` can execute work on a request/event-loop thread and break
 latency or thread-confinement assumptions; after shutdown it discards tasks.

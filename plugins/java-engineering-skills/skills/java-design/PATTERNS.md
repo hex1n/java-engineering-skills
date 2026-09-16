@@ -12,7 +12,7 @@ a requirement to implement the catalog in a project.
 | Abstract Factory | A family of collaborators must remain mutually compatible. | Inject individual collaborators when they do not form a consistency unit. |
 | Builder | Construction has many optional inputs or staged validation. | A constructor/static factory for a small invariant; validate before exposing a built object. |
 | Prototype | Existing configured objects are the useful starting point for new ones. | Explicit copy construction with a defined shallow/deep ownership contract. |
-| Singleton | Exactly one instance per defined owner is part of the model. | Dependency injection with explicit scope; one JVM object does not mean one cluster owner. |
+| Singleton | Exactly one instance per defined owner is part of the model. | Dependency injection with explicit scope; multi-instance ownership is a database or Redis concern. |
 
 ## Structural patterns
 
@@ -46,8 +46,7 @@ a requirement to implement the catalog in a project.
 
 - Distinguish selection from execution: a strategy registry must define unknown
   and duplicate keys; decorators must define order and ownership of closure.
-- Shared instances must be safe for concurrent callers. Dependency injection
-  does not make mutable fields thread-safe.
+- Shared instances must be safe for concurrent callers (java-concurrency).
 - Preserve identity, equality, checked exceptions, and serialization when
   replacing class hierarchies or introducing generated proxies.
 - Keep a public extension interface only when consumers need to implement it.

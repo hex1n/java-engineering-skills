@@ -1,6 +1,56 @@
 # Validation record
 
-## Unreleased — reference accuracy corrections and OceanBase MySQL mode
+## Version 0.7.0 — accuracy corrections, OceanBase, Boot 2.x lines, JVM evidence, skill rewrite
+
+### Audit round: descriptions, single sources, steps, and eval cases
+
+Three independent reviews (cross-skill structure against the agent-writing
+reference; per-skill content and writing quality in two halves) and two
+fresh-context forward evaluations (a Boot 2.3 to 2.7 upgrade on JDK 8 with
+five planted release-line problems; a JVM triage with a failed root attach,
+`jstat` `M` 93% and `FGC` 8 under CMS, and an all-interfaces JDWP agent)
+drove these changes:
+
+- Every skill description now leads with its trigger nouns and names the
+  neighbouring skill that owns an adjacent branch (row locks, Redis leases,
+  idempotency keys, committed-state assertions), and `outbox`, `@Cacheable`,
+  and `Boot 2.x release-line` appear in the descriptions that own them.
+- Rules that were restated in several skills (proxy self-invocation,
+  JVM-local locks across instances, in-memory databases, metric labels,
+  outbox, virtual threads) now live in one owner; other skills name the owner
+  in plain text because the package check forbids cross-skill links.
+- Entry files gained first steps with completion criteria (database
+  connection inventory, endpoint lines, shared-field rows, cache contract
+  lines, no-attach JVM evidence, hypothesis form) and lost no-op and
+  negation-only sentences.
+- Examples now carry the boundary they describe: a same-object call that
+  bypasses `@Transactional`, a strategy registry with duplicate and unknown
+  keys, a `Clock`-injected rule with a test seam, a JMH benchmark that avoids
+  dead code and constant folding.
+- New sourced facts: `Executors` factory queue bounds (Java 8 javadoc),
+  Redisson `lockWatchdogTimeout` 30 s and no renewal under an explicit
+  `leaseTime` (Redisson reference), Kafka `enable.idempotence` requirements
+  and `max.poll.interval.ms` 300000 ms / `max.poll.records` 500 (Kafka 4.1
+  configuration pages), `spring.profiles.include` and `spring.profiles.group`
+  under 2.4 (config data migration guide).
+- Both forward evaluations passed on the pre-rewrite text: the upgrade plan
+  attributed all five problems to the right release line and compared
+  executed test counts; the triage attributed the attach failure to identity,
+  read `M` against `MaxMetaspaceSize`, reconciled `FGC` with the GC log, and
+  refused restart or heap growth. Their prompts and graders are now
+  `plugins/java-engineering-skills/evals/` cases, together with the OceanBase
+  job-claiming case. `claude plugin eval` reported early access on this
+  account, so no case has been executed by the runner; the cases follow the
+  `prompt.md` plus `graders/*.md` layout from the CLI reference.
+- Repository hygiene: `.gitattributes` pins LF; tracked IDE files were
+  removed and ignored; `ROADMAP.md`, `SKILLS.md`, and the README tree were
+  realigned with the plugin.
+
+Not executed: the accuracy re-verification of every cited page in this round
+was interrupted by a session limit after the earlier per-claim checks; no Java
+example added in this round was compiled by the example runner (the strategy
+registry, `TokenPolicy`, `OrderWriter`, and `ParseBench` snippets are
+fragments). The eval runner was not available.
 
 ### OceanBase MySQL-mode reference
 
