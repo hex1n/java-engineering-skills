@@ -13,8 +13,8 @@ A Redis feature's availability is independent of the project's Java release.
 
 - Cache freshness, invalidation, misses, and outages:
   [CACHE.md](CACHE.md).
-- Counters, scripts, transactions, leases, and stale owners:
-  [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md).
+- Counters, scripts, transactions, leases, stale owners, and Redisson lock
+  semantics: [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md).
 - Key/schema design, serialization, cluster behavior, and bounded operations:
   [OPERATIONS.md](OPERATIONS.md).
 

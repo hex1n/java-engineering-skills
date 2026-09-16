@@ -21,7 +21,21 @@ for a fresh lifetime or version-supported `KEEPTTL` when preserving it is the
 contract. `KEEPTTL` requires Redis 6.0+ and does not give a persistent/new key
 an expiration. `INCR` preserves an existing TTL but does not expire a new counter.
 Inspect actual client overloads instead of assuming a Java object's TTL follows
-its value automatically.
+its value automatically. A per-entry TTL inside a hash is a client feature, not
+a server one: Redisson's `RMapCache` states that "entry expiry feature is not
+supported by Redis or Valkey", needs Redisson itself to evict, and starts that
+eviction task "once per unique object name at the moment of getting Map
+instance", so a write-only cache that nobody re-opens after a restart keeps its
+expired entries, and another client reading the same key still sees them. Use a
+key-level TTL, or the client's server-side variant where the deployed server
+supports hash-field expiration. A Spring `CacheManager` backed by this client
+takes TTL and max-idle per cache name in its own configuration and "stores data
+infinitely if they are not defined", so a new `@Cacheable` name without a
+matching entry never expires.
+
+Sources: [Redisson FAQ](https://redisson.pro/docs/faq/),
+[Redisson collections](https://redisson.pro/docs/data-and-services/collections/),
+[Redisson Spring cache](https://redisson.pro/docs/cache/spring-cache/).
 
 For a counter with a window, define whether expiry is anchored to a time bucket,
 first request, or last activity. `INCR` followed by a separate conditional

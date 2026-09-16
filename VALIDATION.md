@@ -71,9 +71,39 @@ drove these changes:
   configuration pages and the Redisson lock reference for the facts added to
   BROKERS.md and ATOMICITY-AND-LOCKS.md.
 
+### Redisson claims re-checked against the vendor documentation
+
+A second pass over the Redisson reference and configuration pages corrected
+what the previous round had written from a single page:
+
+- Only two of the three earlier claims are documented. The lease-versus-
+  watchdog split and the 30 s `lockWatchdogTimeout` are stated outright. That
+  a paused or disconnected holder is never told it lost the lock appears only
+  as the rationale for `RFencedLock` ("can't detect that it doesn't own the
+  lock anymore"), not as a contract of the ordinary lock, so
+  ATOMICITY-AND-LOCKS.md now states the renewal shapes generically and keeps
+  the vendor-specific wording inside a Redisson section. The renewal interval
+  is not documented at all and is no longer implied.
+- Added with sources: the owner-thread unlock rule and the
+  `IllegalMonitorStateException` that a bare `finally` block raises once the
+  lease has expired; the documented requirement to pin the thread id across
+  async, reactive, and RxJava calls; locks being advisory with
+  `checkLockSyncedSlaves` on by default and a 1000 ms `slavesSyncTimeout`
+  whose expiry looks like contention; `RedLock` deprecated since 3.12.5 while
+  `MultiLock` is not.
+- OPERATIONS.md now records that per-entry expiry in a hash is a client
+  feature ("not supported by Redis or Valkey"), that the eviction task starts
+  when the map instance is obtained, and that a Spring cache name without a
+  configured TTL never expires.
+
+Not verified: the claims the vendor documents only in source form (renewal
+interval, `forceUnlock` side effects, semaphore permit leakage) were left out
+rather than restated, and no Redisson behavior was executed against a server.
+
 Not executed: `claude plugin eval` reports early access on this account, so no
-eval case has been run by the runner. The Redisson watchdog renewal interval
-is not stated in its reference, so the text names only the default timeout.
+eval case has been run by the runner. The gate was re-confirmed by running the
+command in an empty directory, where an enabled account would report that no
+cases were found.
 
 ### OceanBase MySQL-mode reference
 

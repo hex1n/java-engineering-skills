@@ -43,19 +43,44 @@ resource must reject stale writes, it must enforce a monotonically ordered
 fencing token or another atomic version/uniqueness condition. Tokens merely
 logged or checked in Redis do not fence an external database/API.
 
-Renewal fails in two shapes. A Redisson lock acquired with an explicit
-`leaseTime` is never renewed and expires under a holder that is still working;
-a watchdog-renewed lock (no `leaseTime`, `lockWatchdogTimeout` 30 s by
-default) stops renewing when the holder's JVM pauses or loses its connection,
-and the holder is not told it lost ownership. Name which shape the code is in
-and how the protected write is rejected after loss; asynchronous replication
-and failover add a third path where two holders exist at once. Redis-based
-coordination reduces contention while a database constraint enforces
-correctness, so state the failure assumptions and the resource-side
-enforcement with every lock design.
-[Redisson locks](https://redisson.pro/docs/data-and-services/locks-and-synchronizers/).
+Renewal fails in two shapes. A lease renewed by a client-side watchdog stops
+extending when that client pauses or loses its connection; a lease taken with
+an explicit expiry is never extended at all and ends under a holder that is
+still working. Name which shape the code is in and how the protected write is
+rejected after loss; asynchronous replication and failover add a third path
+where two holders exist at once. Redis-based coordination reduces contention
+while a database constraint enforces correctness, so state the failure
+assumptions and the resource-side enforcement with every lock design.
 
 Source: [Redis distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/).
+
+## Redisson locks
+
+The documented contract, when the project uses this client:
+
+- `lockWatchdogTimeout` (30 s by default) applies only to a lock acquired
+  **without** a lease time; with an explicit lease, "after specified time
+  interval locked lock will be released automatically". The renewal interval
+  is an implementation detail, not a documented promise.
+- Only the owning thread may unlock, or `IllegalMonitorStateException` is
+  thrown. After the lease has expired the lock no longer exists, so a bare
+  `finally { lock.unlock(); }` throws from the finally block and replaces the
+  business exception. Guard it with `isHeldByCurrentThread()`.
+- In the async, reactive, and RxJava APIs "a single logical operation may run
+  across more than one thread, so the thread that acquires a lock may not be
+  the one that releases it": capture the thread id once and pass it to
+  `lock`, `tryLock`, and `unlock`.
+- These locks are advisory and their safety "depends on the deployment
+  topology". `checkLockSyncedSlaves` is on by default: when replicas do not
+  acknowledge within `slavesSyncTimeout` (1000 ms), Redisson releases the lock
+  and the acquisition fails, which reads like contention rather than
+  replication lag.
+- `RedLock` is deprecated (since 3.12.5) in favor of a plain lock with the
+  replica check, and `RFencedLock` where the protected resource can verify a
+  monotonic token; `MultiLock` is not deprecated.
+
+Sources: [Redisson locks](https://redisson.pro/docs/data-and-services/locks-and-synchronizers/),
+[Redisson configuration](https://redisson.pro/docs/configuration/).
 
 ## Verification scenarios
 
