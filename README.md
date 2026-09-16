@@ -56,6 +56,12 @@ Lambda、方法引用、Stream、收集器、并行流、接口默认/静态方�
 
 先进入本仓库根目录。以下命令会修改相应工具的插件配置；创建仓库本身不会安装插件。
 
+插件安装并启用后，其中的 skills 可由用户显式调用，也可由代理根据任务与
+`description` 的匹配情况自动选用。本插件未配置为仅允许显式调用。
+skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时加载，参考资料按需读取。
+参见 [Codex skills](https://developers.openai.com/codex/skills) 和
+[Claude Code skills](https://code.claude.com/docs/en/skills)。
+
 ### Codex
 
 ```sh
@@ -76,7 +82,7 @@ claude plugin marketplace add ./
 claude plugin install java-engineering-skills@java-engineering-skills
 ```
 
-在新会话中显式调用：
+也可以在新会话中显式调用：
 
 ```text
 /java-engineering-skills:use-modern-java
