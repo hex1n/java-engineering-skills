@@ -11,6 +11,19 @@ PID/container namespaces, VM implementation, and writable target-side paths.
 Commands shown here are HotSpot examples, not portable across all JVMs.
 [jcmd](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jcmd.html).
 
+When the tool runs as a different user, including root, a HotSpot 8 target
+ignores the attach handshake and the tool reports `Unable to open socket
+file: target process not responding or HotSpot VM not loaded`. Read that as an
+identity or namespace mismatch before concluding that the JVM is unresponsive:
+`jstat` reads the exported performance counters without the attach handshake,
+and a `jstat` that still answers shows the VM is alive. Inside a container,
+enter the target's mount and PID namespaces with the target's uid and gid, and
+use the PID as the target sees it; the JDK path from `/proc/<pid>/exe` exists
+only inside that mount namespace. Diagnostic commands also differ by release:
+`GC.heap_info` is absent from JDK 8's `jcmd` (`Unknown diagnostic command`),
+so take heap and metaspace sizes from `jstat -gc` there.
+[jstat](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstat.html).
+
 JFR was integrated into OpenJDK 11; Java 8 availability depends on the vendor
 and update/backport. Verify capabilities instead of automatically adding old
 commercial-feature flags. Event streaming is a separate JDK 14 feature and
@@ -77,3 +90,15 @@ quota. GC logging syntax differs between Java 8 and unified logging in newer
 JDKs; inspect existing configuration and version documentation before proposing
 a restart to add flags. Preserve timestamps/timezones and units when joining
 logs with latency evidence.
+
+Read the evidence that needs no attach first: the GC log named by `-Xloggc`
+in the live command line, `/proc/<pid>/status` and `limits`, and the cgroup
+memory and CPU files. Together they answer full-collection counts, pause
+lengths, promotion failures, resident size, thread and descriptor counts, and
+whether a memory limit exists at all. Two Java 8 format traps: without
+`-XX:+PrintGCDetails` a CMS cycle logs as `[GC (CMS Initial Mark) …]` and
+`[GC (CMS Final Remark) …]`, with it as `CMS-initial-mark` and `CMS-remark`,
+so count both spellings; and `-Xloggc` alone stamps events with seconds since
+the first GC, which cannot be aligned with application logs unless
+`-XX:+PrintGCDateStamps` (off by default) was set.
+[Java 8 GC logging options](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html).

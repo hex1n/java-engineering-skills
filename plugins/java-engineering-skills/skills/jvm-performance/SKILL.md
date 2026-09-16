@@ -8,7 +8,10 @@ description: Diagnose Java service CPU, latency, allocation, GC, memory, or thre
 Define the symptom and measurement window before choosing a tool: latency
 distribution, completed throughput, errors, CPU, memory, or blocked progress.
 Record workload, service build, JDK vendor/update, collector, JVM flags, and
-CPU/memory limits. Keep production and test/runtime differences explicit.
+CPU/memory limits. Keep production and test/runtime differences explicit. The
+flag inventory also shows agents that listen on the network, such as a JDWP or
+JMX agent bound to every interface; report that exposure even in a
+performance task.
 
 - For version-compatible tools, bounded recordings, and collection impact,
   read [COLLECTION.md](COLLECTION.md).

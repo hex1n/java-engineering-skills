@@ -72,6 +72,40 @@ error and four statements that needed narrowing or a matching source:
   Windows `core.autocrlf=true` checkout already stores as CRLF, producing
   `\r\r\n` and a false failure. The fixture now normalizes line endings first.
 
+### jvm-performance: attach identity, jstat columns, no-attach evidence
+
+A read-only baseline diagnosis of HotSpot 1.8.0_131 services running with CMS
+in Linux containers exercised the skill and exposed three gaps:
+
+- `jcmd` run as root through `nsenter` into the container's mount, PID, and
+  UTS namespaces failed with `Unable to open socket file: target process not
+  responding or HotSpot VM not loaded`; the same command with the JVM's own
+  uid and gid listed the VM, returned `VM.flags`, and produced a full
+  `Thread.print`. `jstat -gc`, `-gcutil`, `-gccapacity`, and `-class`
+  answered in both cases. `GC.heap_info` returned `Unknown diagnostic command`
+  on this JDK. `COLLECTION.md` now names the failure signature, the `jstat`
+  fallback, the container-side PID, and the JDK 8 command gap; the existing
+  same-user rule was correct and is unchanged.
+- `jstat -gcutil` reported a non-zero `FGC` on services whose GC logs
+  contained zero `Full GC` lines and exactly `FGC / 2` pairs of `CMS Initial
+  Mark` and `CMS Final Remark` events; `M` read above 90% while `MU` was well
+  under the `-XX:MaxMetaspaceSize` confirmed by `VM.flags`, and `MCMX`
+  reported more than that flag. `DIAGNOSIS.md` now explains the three
+  columns, citing the jstat manual's definitions.
+- The full-collection, pause, promotion-failure, RSS, thread, descriptor,
+  and memory-limit conclusions came from the GC log, `/proc`, and cgroup
+  files without any attach. Some services log without `-XX:+PrintGCDetails`,
+  so CMS phases appear as `[GC (CMS Initial Mark) …]`, and none set
+  `-XX:+PrintGCDateStamps`. `COLLECTION.md` now lists that evidence first and
+  both format traps, citing the Java 8 `java` tool page for the option
+  defaults.
+- One flag inventory showed a JDWP agent bound to all interfaces; `SKILL.md`
+  now asks for network-listening agents to be reported.
+
+Not executed: no load was applied, no JFR recording or heap dump was taken,
+and NMT was not enabled; the attach-identity behavior was observed on HotSpot
+8u131 only.
+
 ### Spring Boot lines before 2.7
 
 The skill anchored on Boot 2.7 and 3.x without stating which line a Java 8
