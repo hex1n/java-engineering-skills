@@ -17,8 +17,9 @@ CPU/memory limits. Keep production and test/runtime differences explicit.
 - For JMH, realistic load, and before/after comparisons, read
   [MEASUREMENT.md](MEASUREMENT.md).
 
-Step 1, before any attach: from the live command line take `-Xmx`, `-Xloggc`,
-and any `-agentlib:jdwp` or `jmxremote` flag; read `/proc/<pid>/status`
+Step 1, before any attach: from the live command line take `-Xmx`, the GC log
+path (`-Xloggc` on Java 8, `-Xlog:gc*:file=…` from JDK 9), and any
+`-agentlib:jdwp` or `jmxremote` flag; read `/proc/<pid>/status`
 (VmRSS, Threads), `/proc/<pid>/limits`, and the cgroup memory limit and CPU
 quota files (COLLECTION.md, "Start without attaching"). Done when you can
 state RSS against the limit, the full-GC count and longest pause from the GC

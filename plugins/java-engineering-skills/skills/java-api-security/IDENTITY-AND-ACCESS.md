@@ -4,10 +4,14 @@
 
 Validate bearer tokens with a configured verifier: signature and allowed
 algorithms, issuer, intended audience, expiry/not-before, and the trusted key
-source. Decoding JWT claims is not verification. Bound clock skew, key refresh,
-and dependency failures using the deployed framework's configuration. Claims
+source. Decoding JWT claims is not verification. Note which checks the stack
+already performs: Spring Security's resource server validates the signature,
+`exp`/`nbf`, and `iss` out of the box with a 60-second default clock skew, but
+checks `aud` only when the audiences property or an `OAuth2TokenValidator` is
+configured. Bound clock skew, key refresh, and dependency failures using the
+deployed framework's configuration. Claims
 needed for authorization must be verified and mapped deliberately.
-[Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html).
+[Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/6.4/servlet/oauth2/resource-server/jwt.html).
 
 Every repository read or write that takes a client-supplied ID takes the
 server-derived owner or tenant in the same predicate
@@ -50,7 +54,7 @@ flows and test unsafe methods. A header-only bearer flow has different
 assumptions; verify that no alternate cookie/session credential path exists
 before narrowing protection. Preserve version-specific token handling during
 Spring Security upgrades.
-[Spring CSRF](https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html).
+[Spring CSRF](https://docs.spring.io/spring-security/reference/6.4/servlet/exploits/csrf.html).
 
 CORS controls browser cross-origin access; it is not server authorization.
 Use an explicit origin/credential policy for the application's clients. A

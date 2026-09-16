@@ -59,7 +59,7 @@ remove unmatched rows. UNION ALL preserves duplicates; UNION removes them.
 Check grouping, empty inputs, and aggregate overflows/precision before pushing
 aggregation or limits across a join. A syntactically shorter query is not
 proof of equivalence.
-[MySQL subquery semantics](https://dev.mysql.com/doc/refman/8.0/en/subqueries.html),
+[MySQL IN/NOT IN NULL semantics and the EXISTS rewrite](https://dev.mysql.com/doc/refman/8.0/en/subquery-optimization-with-exists.html),
 [join semantics](https://dev.mysql.com/doc/refman/8.0/en/join.html).
 
 ## Pagination and verification

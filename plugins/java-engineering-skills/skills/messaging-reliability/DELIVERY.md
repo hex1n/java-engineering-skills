@@ -16,9 +16,9 @@ acknowledge message / advance the eligible offset
 ```
 
 The uniqueness constraint must arbitrate concurrent deliveries; checking then
-inserting without it races. Use the database's supported conflict handling:
-on PostgreSQL, blindly catching a constraint error and continuing in the same
-aborted transaction is not sufficient. A reused key with different business
+inserting without it races. Use the database's supported conflict handling,
+such as PostgreSQL's `ON CONFLICT DO NOTHING` or `DO UPDATE`, rather than
+catching the constraint error and continuing in the same transaction. A reused key with different business
 content requires an explicit conflict policy. Retain identities long enough
 for the allowed redelivery/replay window.
 

@@ -92,7 +92,7 @@ This changes evaluation behavior. Preserve eager work if callers depend on its
 side effects. Retain an existing optional representation; do not spread
 `Optional` into persistence fields or public parameters merely for style.
 
-Source: [Optional fallback methods](https://docs.oracle.com/javase/9/docs/api/java/util/Optional.html).
+Source: [Java 8 Optional](https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html).
 
 ## mutable-stream-result
 

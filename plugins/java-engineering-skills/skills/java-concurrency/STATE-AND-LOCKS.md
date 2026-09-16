@@ -26,8 +26,10 @@ iteration can reflect concurrent changes and does not provide a whole-map
 snapshot. If a cross-key invariant or consistent report is required, establish
 one synchronization/snapshot protocol followed by all participants.
 
-Keep map computation callbacks short; do not put blocking remote work inside
-an atomic map callback without accounting for contention and failure. Mutable
+A map computation callback "should be short and simple, and must not attempt
+to update any other mappings of this map"; a recursive update from inside the
+callback deadlocks on Java 8 and throws `IllegalStateException` on later
+releases. Blocking remote work inside one blocks other updates too. Mutable
 values need separate protection. For producer/consumer work, use an explicitly
 bounded queue and choose `offer`, timed `offer`, or `put` from the caller's
 blocking/rejection contract. Test full queues and failed consumers; BlockingQueue
@@ -75,9 +77,11 @@ Avoid waiting for work scheduled onto the same saturated executor while holding
 resources that work needs. A timeout helps recovery only if acquired resources
 are released and the partially performed operation has defined semantics.
 
-Read-to-write upgrading of `ReentrantReadWriteLock` is not supported by simply
-acquiring the write lock while retaining the read lock. Release, acquire, and
-recheck the state if that protocol fits. Fairness can affect throughput and does
+Upgrading from the read lock to the write lock of a `ReentrantReadWriteLock`
+is not possible: a thread that requests the write lock while holding the read
+lock never succeeds. Release, acquire, and recheck the state if that protocol
+fits; downgrading write to read by taking the read lock before releasing the
+write lock is supported. Fairness can affect throughput and does
 not provide a business-level latency guarantee.
 
 Source: [ReentrantReadWriteLock](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/locks/ReentrantReadWriteLock.html).

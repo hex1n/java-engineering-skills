@@ -11,13 +11,14 @@ For B-tree candidates, align leading keys with commonly fixed predicates and
 then consider range/order requirements. This is a starting hypothesis, not
 “most selective column first” for every workload. Optional predicates,
 multiple-value IN filters, direction/null ordering, collation, and joins can
-change the useful order. A range condition can limit how later keys narrow
-the scan while later keys still help filtering, ordering, or coverage; it
-does not universally make all following columns useless. Verify the actual
+change the useful order. A range operator on one key part stops interval
+construction there, so later key parts no longer narrow the scanned range
+although they can still serve filtering, ordering, or coverage. Verify the actual
 plan and version-specific optimizer strategies. A leftmost prefix is the
 baseline B-tree lookup model; a version-specific skip scan or index merge is
 not evidence that any arbitrary column order is equally effective.
-[MySQL multicolumn indexes](https://dev.mysql.com/doc/refman/8.0/en/multiple-column-indexes.html).
+[MySQL multicolumn indexes](https://dev.mysql.com/doc/refman/8.0/en/multiple-column-indexes.html),
+[range access for multiple-part indexes](https://dev.mysql.com/doc/refman/8.0/en/range-optimization.html).
 
 For example, for a hot query whose tenant and status are single fixed values:
 

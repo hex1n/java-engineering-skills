@@ -6,23 +6,29 @@ request to upgrade an existing deployment.
 
 ## Kafka
 
-Ordering is within a partition. Order holds per partition per producer when
-`enable.idempotence=true`, which requires `acks=all`, `retries` above 0, and
-`max.in.flight.requests.per.connection` at most 5; with idempotence off and
-in-flight above 1, a retried batch can land behind a later one. Durability
+Ordering is within a partition. Order holds per partition per producer under
+`enable.idempotence`, which requires `acks=all`, `retries` above 0, and
+`max.in.flight.requests.per.connection` at most 5. It is enabled by default
+when nothing conflicts, but a conflicting value without an explicit
+`enable.idempotence=true` disables it silently, while a conflicting value with
+it set explicitly throws `ConfigException`. With idempotence off and in-flight
+above 1, a retried batch can land behind a later one. Durability
 needs `acks=all` together with the topic's `min.insync.replicas` above 1. Read
 the effective producer config from the client's startup log rather than the
 property file, and keep consumer concurrency at or below the partition count.
 
-Kafka transactions can bind produced Kafka records and consumed offsets;
-transactional consumers must use the intended isolation setting. An external
+Kafka transactions can bind produced Kafka records and consumed offsets
+through `sendOffsetsToTransaction` under a configured `transactional.id`;
+consumers that must not see aborted work set `isolation.level` to
+`read_committed`. An external
 database effect follows [DELIVERY.md](DELIVERY.md). Handle fencing,
 abort/retry, and transactional identity lifecycle using the actual client API.
 
 When records are processed asynchronously, commit only offsets that do not
 skip unfinished earlier records in that partition. The committed offset marks
 the next record to consume. A handler that exceeds `max.poll.interval.ms`
-(default 300000 ms) gets its consumer evicted: the partition moves, the same
+(default 300000 ms) makes the client proactively leave the group: the partition
+moves, the same
 records are redelivered to another instance, and the slow instance's commit
 fails with `CommitFailedException` after its work already ran, which is the
 standard duplicate-processing loop. Keep handler time under the interval by
@@ -33,6 +39,9 @@ retry topic relaxes ordering.
 
 Sources: [Kafka delivery semantics](https://kafka.apache.org/41/design/design/),
 [Producer configuration](https://kafka.apache.org/41/configuration/producer-configs/),
+[Consumer configuration](https://kafka.apache.org/41/configuration/consumer-configs/),
+[Topic configuration](https://kafka.apache.org/41/configuration/topic-configs/),
+[KafkaProducer transactional API](https://kafka.apache.org/41/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html),
 [KafkaConsumer contract](https://kafka.apache.org/41/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html).
 
 ### Decode failures before the listener
@@ -54,7 +63,7 @@ happens when publishing fails. Verify malformed key/value data before listener
 entry, recovery failure, restart, and replay; throwing inside a healthy listener
 does not exercise this path.
 
-Sources: [Spring Kafka deserialization recovery](https://docs.spring.io/spring-kafka/reference/kafka/serdes.html),
+Sources: [Spring Kafka deserialization recovery](https://docs.spring.io/spring-kafka/reference/3.3/kafka/serdes.html),
 [Spring Kafka 2.8.11 reference](https://docs.spring.io/spring-kafka/docs/2.8.11/reference/pdf/spring-kafka-reference.pdf).
 
 ## RabbitMQ

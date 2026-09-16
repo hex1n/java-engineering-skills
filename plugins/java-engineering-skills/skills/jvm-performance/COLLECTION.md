@@ -3,18 +3,21 @@
 ## Start without attaching
 
 Read the evidence that needs no attach first: the GC log named by `-Xloggc`
-in the live command line, `/proc/<pid>/status` and `limits`, and the cgroup
-memory and CPU files. Together they answer full-collection counts, pause
-lengths, promotion failures, resident size, thread and descriptor counts, and
-whether a memory limit exists at all. Two Java 8 GC-log format traps:
+(Java 8) or `-Xlog:gc*:file=…` (unified logging, JDK 9+) in the live command
+line, `/proc/<pid>/status` and `limits`, and the cgroup memory and CPU files.
+A process configured with neither flag has no GC log to read. Together they
+answer full-collection counts, pause lengths, promotion failures, resident
+size, thread and descriptor counts, and whether a memory limit exists at all.
+Two Java 8 GC-log traps:
 
-- Without `-XX:+PrintGCDetails`, a CMS cycle logs as `[GC (CMS Initial Mark) …]`
-  and `[GC (CMS Final Remark) …]`; with it, as `CMS-initial-mark` and
-  `CMS-remark`. Count both spellings.
+- Phase lines are spelled differently with and without `-XX:+PrintGCDetails`
+  (the `java` tool page documents neither form), so read the spellings out of
+  the log in hand before counting collector cycles.
 - `-Xloggc` alone stamps events with seconds since the first GC; alignment with
   application logs needs `-XX:+PrintGCDateStamps`, which is off by default.
 
-[Java 8 GC logging options](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html).
+[Java 8 GC logging options](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html),
+[unified logging](https://openjdk.org/jeps/158).
 
 ## Resolve tools from the running JVM
 
@@ -27,18 +30,21 @@ PID/container namespaces, VM implementation, and writable target-side paths.
 Commands shown here are HotSpot examples, not portable across all JVMs.
 [jcmd](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jcmd.html).
 
-When the tool runs as a different user, including root, `jcmd` against a
-HotSpot 8 target (observed on 8u131) reports `Unable to open socket file:
-target process not responding or HotSpot VM not loaded`; the jcmd manual's
-same-user requirement is the documented cause. Read that as an identity or
-namespace mismatch before concluding that the JVM is unresponsive:
-`jstat` reads the exported performance counters without the attach handshake,
-and a `jstat` that still answers shows the VM is alive. Inside a container,
+`jcmd` requires the same machine and the same effective user and group that
+launched the JVM. A mismatched identity can answer with `Unable to open socket
+file: target process not responding or HotSpot VM not loaded`, but so can a
+hung VM, a stale attach file, or `-XX:+DisableAttachMechanism`: check identity
+and namespace before concluding that the JVM is unresponsive. Running as root,
+`jstat` can still read the JVM's per-user performance-counter file when the
+attach handshake fails, which shows the VM is alive; as another unprivileged
+user both tools fail, so the pair discriminates nothing there. Inside a container,
 enter the target's mount and PID namespaces with the target's uid and gid, and
 use the PID as the target sees it; the JDK path from `/proc/<pid>/exe` exists
 only inside that mount namespace. Diagnostic commands also differ by release:
-`GC.heap_info` is absent from JDK 8's `jcmd` (`Unknown diagnostic command`),
-so take heap and metaspace sizes from `jstat -gc` there. Report any JDWP or
+`GC.heap_info` is absent from JDK 8's
+[command list](https://docs.oracle.com/javase/8/docs/technotes/guides/troubleshoot/tooldescr006.html)
+and answers `Unknown diagnostic command` there, so take heap and metaspace
+sizes from `jstat -gc` on that release. Report any JDWP or
 JMX agent in the JVM flags that is bound to all interfaces; it is an exposure
 regardless of the performance question.
 [jstat](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstat.html).

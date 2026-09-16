@@ -71,6 +71,53 @@ drove these changes:
   configuration pages and the Redisson lock reference for the facts added to
   BROKERS.md and ATOMICITY-AND-LOCKS.md.
 
+### Every skill re-checked by opening its cited pages
+
+Five reviews opened each cited URL and compared the quoted passage, and also
+looked for factual claims with no citation. No link was dead except one, and
+the version thresholds and JEP numbers held throughout. Corrected:
+
+- A systemic sourcing defect: unversioned `docs.spring.io` URLs now resolve to
+  Boot 4.1.1 and Framework 7.0.9, so the transaction page they reached already
+  documents 6.2-only `rollbackOn=ALL_EXCEPTIONS` while the surrounding text
+  describes 5.3. All 18 such links are now version-pinned.
+- `redisson.pro/docs/cache/spring-cache/` returned 404; the Spring cache
+  section lives under `integration-with-spring`. The quoted sentence also lost
+  "or equal to `0`", which changes where the never-expire branch starts.
+- Contract versus implementation: `Stream.toList()` accepting null,
+  `toMap`/`groupingBy` rejecting null, and a discarded task's `Future` never
+  completing are implementation behavior, not documented contracts, and now
+  say so. `ConcurrentHashMap`'s computation rule regained its documented
+  "must not update any other mapping", and read-to-write upgrade of
+  `ReentrantReadWriteLock` is stated as impossible rather than unsupported.
+- Claims attached to pages that did not carry them: the `MatchException`
+  behavior (JEP 441, not 440), parallel streams running on the common
+  `ForkJoinPool`, MySQL `NOT IN` NULL semantics (the EXISTS-rewrite page), and
+  range access stopping interval construction (the range-optimization page).
+  Kafka's consumer, topic, and transactional-producer claims gained their own
+  configuration pages.
+- Overreach in this session's own additions: the CMS `FGC` explanation no
+  longer cites a JDK 21 page for a collector removed in JDK 14, the `jcmd`
+  attach message is no longer presented as an identity signature, the
+  `jstat`-answers-so-the-VM-is-alive test now states that it only holds for
+  root, the no-attach step accepts `-Xlog:gc*` as well as `-Xloggc`, the CMS
+  log spellings are presented as something to read out of the log in hand, and
+  the cache-aside interleaving is labelled an ordering analysis rather than a
+  cited fact.
+- Defaults that change the advice: Kafka idempotence is on by default and is
+  silently disabled by a conflicting value; `@Cacheable(sync=true)` is a hint
+  the provider may ignore, with three documented limits; Testcontainers
+  documents parallel execution as unsupported; `@MockitoBean` arrived in
+  Framework 6.2 with Boot 3.4 deprecating `@MockBean`; Spring Security's
+  resource server does not check `aud` by default; JMH folds a `final` field
+  initialized to a literal, so inputs belong in non-final `@State` fields;
+  MySQL reports changed rows while Connector/J reports matched rows, which
+  decides what an affected-row count means; adding a `STORED` generated column
+  rebuilds an existing table while a `VIRTUAL` one does not.
+
+Not verified: link-liveness only was checked for roughly thirty low-risk
+javadoc and JEP URLs, and no behavior in this round was executed.
+
 ### Redisson claims re-checked against the vendor documentation
 
 A second pass over the Redisson reference and configuration pages corrected

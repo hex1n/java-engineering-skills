@@ -12,7 +12,12 @@ WHERE product_id = :product_id
   AND available >= :quantity;
 ```
 
-Require exactly one affected row for success. Validate `quantity > 0`; a
+Require exactly one affected row for success, and record which count the stack
+returns before relying on it: MySQL reports changed rows by default, while
+Connector/J sets `CLIENT_FOUND_ROWS` unless `useAffectedRows=true` and so
+reports matched rows, and `INSERT … ON DUPLICATE KEY UPDATE` reports 1, 2, or 0
+only when that flag is unset. A conditional update that writes the same values
+reports zero changed rows without being a conflict. Validate `quantity > 0`; a
 negative value would increase stock. This protects the local stock predicate,
 not exactly-once requests: repeated reservations need a unique operation
 identity committed with the inventory change. A prior `SELECT` followed by
@@ -23,6 +28,8 @@ increment it atomically. A zero-row result is a conflict to resolve explicitly;
 blindly retrying a stale entity can overwrite another change.
 
 Sources: [MySQL UPDATE](https://dev.mysql.com/doc/refman/8.0/en/update.html),
+[mysql_affected_rows](https://dev.mysql.com/doc/c-api/8.0/en/mysql-affected-rows.html),
+[Connector/J useAffectedRows](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-connection.html),
 [Jakarta Persistence optimistic locking](https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1).
 
 ## Uniqueness and transaction scope

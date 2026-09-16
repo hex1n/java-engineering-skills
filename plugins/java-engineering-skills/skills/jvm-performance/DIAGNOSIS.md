@@ -56,14 +56,14 @@ Collector/heap tuning trades CPU, memory, and pauses, and cannot remove
 unbounded retention or an overloaded downstream service.
 [GC tuning context](https://docs.oracle.com/en/java/javase/21/gctuning/introduction-garbage-collection-tuning.html).
 
-Three `jstat` columns read worse than they are. `M` and `CCS` are utilization
-of the space's *current capacity*, so a metaspace at 93% with a much larger
-`-XX:MaxMetaspaceSize` has room to grow; compare `MU` against the flag. `FGC`
-counts "full GC events", and under CMS each concurrent cycle's stop-the-world
-phases increment it, so an `FGC` of 8 can be four cycles and zero `Full GC`
-lines in the GC log; reconcile the counter with the log before reporting a
-full collection. Capacity maxima such as `MCMX` report what the VM reserved,
-not the configured limit; take limits from `jcmd <pid> VM.flags`.
+Three `jstat` readings look worse than they are. `M` is "utilization as a
+percentage of the space's current capacity", so a metaspace at 93% with a much
+larger `-XX:MaxMetaspaceSize` has room to grow; compare `MU` against the flag,
+and read `CCS` the same way. `FGC` is documented only as the "number of full
+GC events": on a concurrent collector an increment need not correspond to a
+`Full GC` line, so reconcile the counter with the GC log before reporting a
+full collection. A maximum-capacity column such as `MCMX` is not a restatement
+of the configured flag either; take limits from `jcmd <pid> VM.flags`.
 [jstat columns](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstat.html).
 
 Tie a candidate change to a falsifiable prediction: bounded cache should

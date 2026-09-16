@@ -68,7 +68,7 @@ Preserve resource ownership when
 wrapping `Closeable` objects; test wrapper order and failure propagation.
 
 Sources: [Java FilterInputStream wrapper contract](https://docs.oracle.com/javase/8/docs/api/java/io/FilterInputStream.html),
-[Spring proxy semantics](https://docs.spring.io/spring-framework/reference/core/aop/proxying.html).
+[Spring proxy semantics](https://docs.spring.io/spring-framework/reference/6.2/core/aop/proxying.html).
 
 ## State and command
 

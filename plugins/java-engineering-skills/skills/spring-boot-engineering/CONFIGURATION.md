@@ -83,7 +83,7 @@ responsibility/lifecycle rather than enabling circular references by default.
 Container singleton scope does not protect mutable fields from concurrent
 requests.
 
-Source: [Boot auto-configuration](https://docs.spring.io/spring-boot/reference/using/auto-configuration.html).
+Source: [Boot auto-configuration](https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html).
 
 ## Properties
 
@@ -98,7 +98,7 @@ instead of silently substituting an unsafe timeout or empty endpoint. Keep
 secret values out of diagnostic output; names and origins are usually enough
 to diagnose binding.
 
-Source: [Externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html).
+Source: [Externalized configuration](https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html).
 
 ## Declarative caching
 
@@ -120,12 +120,14 @@ changes that timing. Successful return is not necessarily database commit.
 Inspect advice ordering and transaction-aware cache behavior; rollback and a
 crash between commit and cache update still need the declared consistency policy.
 
-`@Cacheable(sync=true)` (Framework 4.3+) delegates synchronized loading to the
-provider and has restrictions such as no `unless`. It does not establish
-cross-instance exclusion or database consistency by itself. Test the actual
+`@Cacheable(sync=true)` (Framework 4.3+) is "effectively a hint and the chosen
+cache provider might not actually support it in a synchronized fashion"; it
+also rules out `unless`, allows only one cache, and cannot combine with another
+cache operation. It does not establish cross-instance exclusion or database
+consistency by itself. Test the actual
 provider and topology before claiming one load globally. Verify same-key calls,
 cross-tenant inputs, self-invocation, and rollback after a cache-changing call.
 
-Sources: [Spring cache abstraction](https://docs.spring.io/spring-framework/reference/integration/cache.html),
+Sources: [Spring cache abstraction](https://docs.spring.io/spring-framework/reference/6.2/integration/cache.html),
 [Framework 5.3 Cacheable](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/cache/annotation/Cacheable.html),
 [Framework 5.3 CacheEvict](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/cache/annotation/CacheEvict.html).

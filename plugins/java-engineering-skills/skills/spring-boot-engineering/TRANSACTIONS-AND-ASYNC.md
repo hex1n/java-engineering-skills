@@ -38,7 +38,7 @@ explicit and global overrides. Catching an exception can prevent the interceptor
 from seeing it, while an inner failure may already mark the transaction
 rollback-only.
 
-Source: [Transactional annotation semantics](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html).
+Source: [Transactional annotation semantics](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html).
 
 ## Propagation and resource ownership
 
@@ -54,7 +54,7 @@ multiple data sources exist. `readOnly` is not a universal enforcement barrier
 against writes. Keep slow external calls outside a database transaction when
 the required consistency can be expressed without holding its resources.
 
-Source: [Spring propagation](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html).
+Source: [Spring propagation](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html).
 
 ## Events and asynchronous work
 
@@ -71,7 +71,7 @@ without a further commit. For a database write that must commit from this
 callback, use an actually intercepted `REQUIRES_NEW` boundary or explicitly
 configured equivalent, accounting for its connection/lock cost. This still
 does not make the callback durable or let its failure undo the original commit.
-[Spring 5.3 after-commit resource semantics](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/transaction/support/TransactionSynchronization.html#afterCommit()).
+[Spring 5.3 after-commit resource semantics](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/transaction/support/TransactionSynchronization.html#afterCommit--).
 
 `@Async` follows the same proxy rule.
 Thread-bound imperative transactions do not propagate to a new worker thread.
@@ -79,5 +79,5 @@ Define the executor, queue/rejection behavior, failure observation, and required
 context propagation. Reactive transaction context follows different mechanisms
 and needs the chosen reactive transaction manager/pipeline.
 
-Sources: [Transaction-bound events](https://docs.spring.io/spring-framework/reference/data-access/transaction/event.html),
-[Spring task execution](https://docs.spring.io/spring-framework/reference/integration/scheduling.html).
+Sources: [Transaction-bound events](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/event.html),
+[Spring task execution](https://docs.spring.io/spring-framework/reference/6.2/integration/scheduling.html).

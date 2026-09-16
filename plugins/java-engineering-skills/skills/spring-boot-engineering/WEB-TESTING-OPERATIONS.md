@@ -15,7 +15,7 @@ version-compatible validation/error APIs; Boot 2.7 and Boot 3 do not share all
 imports and facilities. Test authentication and object/tenant authorization at
 the actual request boundary when that behavior is affected.
 
-Source: [Spring WebFlux concurrency model](https://docs.spring.io/spring-framework/reference/web/webflux/new-framework.html).
+Source: [Spring WebFlux concurrency model](https://docs.spring.io/spring-framework/reference/6.2/web/webflux/new-framework.html).
 
 ## Choose a test boundary
 
@@ -33,7 +33,7 @@ run on separate threads; a test method's rollback does not roll back the server'
 transaction. Provide deterministic cleanup or isolated database state. In-memory
 database tests do not prove production SQL, locking, or collation behavior.
 
-Source: [Testing Boot applications](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html).
+Source: [Testing Boot applications](https://docs.spring.io/spring-boot/3.5/reference/testing/spring-boot-applications.html).
 
 ## Observe the changed mechanism
 
@@ -48,6 +48,6 @@ auto-configured protection. For health checks, distinguish readiness from
 liveness; tying liveness to a shared downstream outage can trigger unnecessary
 restarts. Preserve graceful shutdown ownership and in-flight work behavior.
 
-Sources: [Boot metrics](https://docs.spring.io/spring-boot/reference/actuator/metrics.html),
-[Actuator endpoint exposure](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html),
-[Application availability probes](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html#actuator.endpoints.kubernetes-probes).
+Sources: [Boot metrics](https://docs.spring.io/spring-boot/3.5/reference/actuator/metrics.html),
+[Actuator endpoint exposure](https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html),
+[Application availability probes](https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html#actuator.endpoints.kubernetes-probes).

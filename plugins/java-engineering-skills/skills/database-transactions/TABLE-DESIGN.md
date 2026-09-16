@@ -83,7 +83,10 @@ UNIQUE KEY uk_active_business (tenant_id, business_key, active_marker)
 ```
 
 Require tenant_id and business_key to be NOT NULL, select their collation,
-and check indexed generated-column support at the exact version. Active rows
+and check indexed generated-column support at the exact version. On an existing
+table, adding this marker as `STORED` forces a full rebuild with no concurrent
+DML, while a `VIRTUAL` generated column can be added in place and still carries
+a unique secondary index; choose the form from the migration window. Active rows
 share marker 1 and conflict; historical rows use NULL and may coexist. This
 does not define restoration automatically: restoring an old row must conflict
 when another active row owns the key. Preflight existing duplicates before

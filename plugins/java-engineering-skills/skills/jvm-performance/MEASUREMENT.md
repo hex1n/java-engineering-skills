@@ -22,8 +22,9 @@ of measured work only when they are not part of the actual operation.
 [JMH project](https://openjdk.org/projects/code-tools/jmh/).
 
 Return the result or consume it with a JMH Blackhole so unused work is not
-eliminated. Use representative runtime inputs rather than compile-time
-constants; otherwise constant folding can remove the intended computation.
+eliminated. Read inputs from non-final instance fields of a `@State` object
+(`@Param` fields qualify); a `final` field initialized to a literal is folded
+just like a literal, and constant folding then removes the computation.
 An added inner loop changes optimization and amortizes costs differently from
 a real call; measure the real call. A minimal benchmark that satisfies both
 rules:

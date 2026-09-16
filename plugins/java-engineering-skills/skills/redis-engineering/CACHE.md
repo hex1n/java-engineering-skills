@@ -19,7 +19,10 @@ not a proof that all late readers have finished. A process can also die between
 database commit and invalidation; durable invalidation is an outbox or CDC
 problem (messaging-reliability).
 
-Source: [Cache-aside considerations](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside).
+The interleaving above is an ordering analysis, not a cited fact; the pattern
+reference covers the general contract and the opposite hazard of removing the
+cached item before the store is updated.
+Source: [Cache-aside pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside).
 
 ## Stampedes and negative caching
 

@@ -28,8 +28,10 @@ static containers are shared within the class. A manually shared singleton
 needs lifecycle aligned with its consumers. Mixing class-managed stop with
 cached Spring contexts can leave later tests pointing at stopped services.
 Shared containers also share state: namespace fixtures and clean each test's
-data. Confirm the selected extension's parallel-execution support before
-enabling parallel tests.
+data. The Testcontainers JUnit 5 extension documents parallel test execution
+as unsupported and prone to unintended side effects; tests that must run in
+parallel manage container lifecycle themselves rather than through
+`@Testcontainers`/`@Container`.
 [JUnit extension](https://java.testcontainers.org/test_framework_integration/junit_5/),
 [lifecycle patterns](https://testcontainers.com/guides/testcontainers-container-lifecycle/).
 
@@ -54,7 +56,7 @@ run the body outside them. A real HTTP server, async worker, or separate
 transaction can commit work that the test's rollback will not remove. Use
 isolated fixture identities/databases or explicit cleanup after workers finish.
 Do not broadly delete shared data to make tests repeatable.
-[Spring test transaction boundaries](https://docs.spring.io/spring-framework/reference/testing/testcontext-framework/tx.html).
+[Spring test transaction boundaries](https://docs.spring.io/spring-framework/reference/6.2/testing/testcontext-framework/tx.html).
 
 For cross-service contracts, verify representative producer/consumer versions
 and real protocol mapping. Keep a focused real integration path for transport,

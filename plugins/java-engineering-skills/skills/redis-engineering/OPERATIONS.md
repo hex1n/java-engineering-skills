@@ -25,17 +25,18 @@ its value automatically. A per-entry TTL inside a hash is a client feature, not
 a server one: Redisson's `RMapCache` states that "entry expiry feature is not
 supported by Redis or Valkey", needs Redisson itself to evict, and starts that
 eviction task "once per unique object name at the moment of getting Map
-instance", so a write-only cache that nobody re-opens after a restart keeps its
-expired entries, and another client reading the same key still sees them. Use a
+instance", with a passive path that only runs on access through Redisson, so
+expiry depends on some client holding that map and a raw client still reads
+entries Redisson considers expired. Use a
 key-level TTL, or the client's server-side variant where the deployed server
 supports hash-field expiration. A Spring `CacheManager` backed by this client
 takes TTL and max-idle per cache name in its own configuration and "stores data
-infinitely if they are not defined", so a new `@Cacheable` name without a
-matching entry never expires.
+infinitely if they are not defined or equal to `0`", so an explicit `0` and a
+new `@Cacheable` name without a matching entry both never expire.
 
 Sources: [Redisson FAQ](https://redisson.pro/docs/faq/),
 [Redisson collections](https://redisson.pro/docs/data-and-services/collections/),
-[Redisson Spring cache](https://redisson.pro/docs/cache/spring-cache/).
+[Redisson Spring integration](https://redisson.pro/docs/integration-with-spring/#spring-cache).
 
 For a counter with a window, define whether expiry is anchored to a time bucket,
 first request, or last activity. `INCR` followed by a separate conditional

@@ -63,7 +63,8 @@ on them. This rule does not justify converting a class into a record. Named
 components work on Java 21; unnamed `_` patterns are outside this stable
 catalog.
 
-Sources: [JEP 440](https://openjdk.org/jeps/440),
+Sources: [JEP 440](https://openjdk.org/jeps/440) for record-pattern syntax and
+null, [JEP 441](https://openjdk.org/jeps/441) for `MatchException`,
 [Java 21 pattern matching semantics](https://docs.oracle.com/javase/specs/jls/se21/html/jls-14.html#jls-14.30.2).
 
 ## sequenced-collections

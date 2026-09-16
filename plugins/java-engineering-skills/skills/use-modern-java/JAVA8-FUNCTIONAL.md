@@ -94,9 +94,10 @@ Map<Integer, Long> byLength = words.stream().collect(Collectors.groupingBy(
 The two-argument `toMap` rejects duplicate keys. Supply a merge function only
 when the domain defines how conflicts resolve; silently keeping the first or
 last value can hide corrupt identities. Specify map factories when order is
-contractual. Do not infer null support from a chosen map implementation:
-Java 8 `toMap` rejects null values and `groupingBy` rejects null classifier
-results. Define rejection or normalization at the input boundary. Use
+contractual. Do not infer null support from a chosen map implementation: in
+the JDK implementation `toMap` rejects null values and `groupingBy` rejects a
+null classifier result, neither of which the `Collectors` javadoc states, so
+treat both as observed behavior rather than contract. Define rejection or normalization at the input boundary. Use
 [an explicit mutable collector](JAVA8.md#mutable-stream-result) for mutable lists.
 
 Use `collect` for mutable accumulation; a shared mutable identity in `reduce`
@@ -126,14 +127,16 @@ use a valid collector or associative reduction with a true identity. Subtraction
 rounding after each addition, and a non-neutral seed can change answers when
 work is partitioned. Compare sequential/parallel results, including empty input.
 
-Parallel streams expose no executor parameter. Do not assume request context,
-transaction state, an isolated pool, or bounded remote-call admission. For
+Parallel streams expose no executor parameter and run on the common
+`ForkJoinPool`, so request context, transaction state, pool isolation, and
+bounded remote-call admission must not be assumed. For
 blocking database/HTTP work needing those controls, choose an explicitly managed
 execution mechanism. Measure representative data, core limits, allocation, and
 competition with other work; `parallel()` alone is not an optimization result.
 
 Sources: [Java 8 parallelism guidance](https://docs.oracle.com/javase/tutorial/collections/streams/parallelism.html),
-[Stream reduction and ordered traversal](https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html).
+[Stream reduction and ordered traversal](https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html),
+[ForkJoinPool.commonPool](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html#commonPool--).
 
 ## interface-default-methods
 

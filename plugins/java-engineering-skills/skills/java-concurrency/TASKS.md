@@ -14,14 +14,19 @@ effect only once that bounded queue is full.
 
 `CallerRunsPolicy` can execute work on a request/event-loop thread and break
 latency or thread-confinement assumptions; after shutdown it discards tasks.
-Silent discard combined with `submit` can leave a returned future without a
-completion. For required work, make admission failure explicit and observable.
+A discarded task never runs, so a `Future` returned by `submit` never
+completes and `get()` blocks indefinitely; that follows from the executor
+implementation rather than a documented contract, so confirm it on the release
+in use. For required work, make admission failure explicit and observable.
 Test both saturation and shutdown rejection paths.
 
 Keep shared executors under application lifecycle management. Locally owned
 executors need a completion/shutdown contract. `ExecutorService.close()` is
-available from Java 19 and waits for termination; wrapping an async-returning
-method in try-with-resources can make return wait for its work.
+available from Java 19: it shuts down and waits until all tasks have completed
+and the executor has terminated, and if the waiting thread is interrupted it
+stops executing tasks as if by `shutdownNow()`, keeps waiting for them, and
+re-asserts the interrupt before returning. Wrapping an async-returning method
+in try-with-resources can therefore make the return wait for its work.
 
 Sources: [ThreadPoolExecutor](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html),
 [ExecutorService.close](https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/util/concurrent/ExecutorService.html).
@@ -39,7 +44,9 @@ Java 9's `orTimeout` completes a future exceptionally, but likewise does not
 prove the underlying I/O stopped. `CompletableFuture.cancel(true)` does not
 interrupt its computation like a conventional interruptible task handle.
 Keep cancellation handles and configure the actual operation's timeouts.
-`allOf` completion also does not imply automatic cancellation of sibling work.
+`allOf` does not short-circuit: one input completing exceptionally neither
+cancels nor stops the others, and the returned future still waits for every
+input.
 
 Pass a remaining total budget into downstream operations rather than restarting
 the full timeout at each retry or stage. Use monotonic elapsed-time measurement
@@ -80,7 +87,8 @@ On Java 21, long blocking synchronized regions and some native calls can pin a
 carrier; measure those paths before changing locks. Virtual threads are daemon
 threads, so establish who waits for completion. Test cancellation and shutdown
 with the real blocking client: closing a scoped executor may still wait after
-`Future.get` times out. Do not recommend preview structured concurrency for a
-Java 21 project whose task and build do not opt into preview.
+`Future.get` times out. Structured concurrency is still a preview feature in
+Java 21, so it applies only to a project whose task and build opt into preview.
 
-Source: [JEP 444](https://openjdk.org/jeps/444).
+Sources: [JEP 444](https://openjdk.org/jeps/444),
+[JEP 453](https://openjdk.org/jeps/453).
