@@ -46,11 +46,34 @@ drove these changes:
   removed and ignored; `ROADMAP.md`, `SKILLS.md`, and the README tree were
   realigned with the plugin.
 
-Not executed: the accuracy re-verification of every cited page in this round
-was interrupted by a session limit after the earlier per-claim checks; no Java
-example added in this round was compiled by the example runner (the strategy
-registry, `TokenPolicy`, `OrderWriter`, and `ParseBench` snippets are
-fragments). The eval runner was not available.
+### Executed validation for 0.7.0
+
+- `node scripts/check.mjs` passed: ten skills, 98 local links, 32 rules. All
+  14 Node.js tests passed. `claude plugin validate` passed for the plugin and
+  the marketplace manifest, and `git diff --check` was clean.
+- The four Java snippets added this round were compiled and executed on
+  Zulu JDK 8u482 with `-source 8 -target 8`, using stub annotations in place
+  of Spring and JMH. Their asserted boundaries hold: the registry rejects an
+  unknown carrier and cannot hold a duplicate key, `TokenPolicy` treats the
+  exact deadline as expired and one second earlier as live, and
+  `ParseBench.parse()` returns the parsed value. Neither the Spring proxy
+  behavior nor JMH harness behavior was executed; only the shapes type-check.
+- Every page cited by this round's new or rewritten text was re-fetched and
+  the quoted passage confirmed against it: the OceanBase V4.2.1 pages for
+  auto-increment mode and cache size, the offline-DDL list and mixed-statement
+  rule, local index defaults and unique-index partition columns,
+  weak-consistency isolation and `max_stale_time_for_weak_consistency`,
+  `ob_query_timeout`, transaction and idle timeout error codes with DDL's
+  implicit commit, CHECK enforcement, and the DESC/generated-column index
+  limits; the Spring Boot 2.1, 2.2, 2.5, and 2.7 release notes for bean
+  overriding, JUnit 5 with the vintage engine, SQL script initialization, and
+  the `spring.factories` deprecation; and the Kafka 4.1 producer and consumer
+  configuration pages and the Redisson lock reference for the facts added to
+  BROKERS.md and ATOMICITY-AND-LOCKS.md.
+
+Not executed: `claude plugin eval` reports early access on this account, so no
+eval case has been run by the runner. The Redisson watchdog renewal interval
+is not stated in its reference, so the text names only the default timeout.
 
 ### OceanBase MySQL-mode reference
 
