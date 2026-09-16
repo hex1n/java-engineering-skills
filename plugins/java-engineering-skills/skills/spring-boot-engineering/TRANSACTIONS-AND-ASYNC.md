@@ -50,8 +50,8 @@ Source: [Spring propagation](https://docs.spring.io/spring-framework/reference/d
 ## Events and asynchronous work
 
 `@TransactionalEventListener` can coordinate a callback with a transaction
-phase, but is not a durable queue. An `AFTER_COMMIT` publisher can be lost if
-the process dies after the commit. For required cross-system delivery, persist
+phase, but is not a durable queue. An `AFTER_COMMIT` listener invocation can be
+lost if the process dies after the commit. For required cross-system delivery, persist
 replayable publication intent in the transaction and relay it with duplicate
 handling. Ordinary database work performed after commit needs its own valid
 transaction boundary when a new commit is required.

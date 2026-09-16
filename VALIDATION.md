@@ -1,5 +1,49 @@
 # Validation record
 
+## Unreleased — reference accuracy corrections
+
+An independent line-by-line review of every reference file found one factual
+error and four statements that needed narrowing or a matching source:
+
+- `use-modern-java/JAVA12-20.md` executor-close: explicit shutdown applies to
+  Java 8–18, not 8–17; `ExecutorService.close()` is `@since 19`.
+- `use-modern-java/JAVA8.md` standard-base64: the commons-codec example matches
+  `Base64.getEncoder()` only from commons-codec 1.5; the Base64 javadoc records
+  that 1.4 `encodeBase64String` chunked its output.
+- `database-transactions/CONSISTENCY.md`: the MySQL 8.0.1 release notes add
+  `NOWAIT` and `SKIP LOCKED`, so no 5.7 release has them. The previous wording
+  implied a 5.7 release might.
+- `spring-boot-engineering/TRANSACTIONS-AND-ASYNC.md`: a crash after commit
+  loses the `AFTER_COMMIT` listener invocation; the publishing transaction has
+  already committed.
+- `jvm-performance/COLLECTION.md`: the cited `java` launcher page did not
+  support the claim that cross-JDK tools are unsupported, and neither the Java
+  21 `jcmd` page nor the Java 21 troubleshooting guide states it. The text now
+  says the documentation makes no cross-release promise and cites the `jcmd`
+  same-machine, same-user requirement instead.
+- `tests/check.test.mjs`: the CRLF fixture replaced `\n` with `\r\n` on files a
+  Windows `core.autocrlf=true` checkout already stores as CRLF, producing
+  `\r\r\n` and a false failure. The fixture now normalizes line endings first.
+
+### Executed validation
+
+- On Windows with Node.js 26.7.0, node scripts/check.mjs passed: ten skills,
+  90 local links and 32 Java rules.
+- All 14 Node.js tests passed on an LF checkout and on a `core.autocrlf=true`
+  checkout. Before the fixture change, the CRLF checkout failed that test.
+- Java examples were unchanged. On the same tree, check-examples passed Java 8
+  on Zulu 8u482 and Java 11/17 targets on OpenJDK 17.0.20.1; no Java 21
+  compiler was available, so the Java 21 suite was not executed.
+- git diff --check passed.
+
+### Limits
+
+Source passages were checked against the current online MySQL 8.0.1 release
+notes, commons-codec API docs, and Java 21 `jcmd` and troubleshooting pages.
+The rest of the review was offline reading; no Redis, MySQL, broker, or Spring
+behavior was newly executed. Manifest versions were not bumped. No commit,
+push or plugin installation was made.
+
 ## Node.js script migration
 
 Replaced both repository-owned Python tools and their unittest suite with

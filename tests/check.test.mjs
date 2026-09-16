@@ -39,7 +39,7 @@ test('current package passes from another working directory and a path with spac
 test('CRLF Markdown preserves frontmatter, index and reference checks', t => {
   const root = fixture(t);
   for (const name of ['SKILL.md', 'INDEX.md', 'JAVA8-FUNCTIONAL.md']) {
-    edit(root, `${SKILLS}/use-modern-java/${name}`, text => text.replaceAll('\n', '\r\n'));
+    edit(root, `${SKILLS}/use-modern-java/${name}`, text => text.replace(/\r?\n/g, '\r\n'));
   }
   const result = check(root);
   assert.equal(result.status, 0, result.stderr);

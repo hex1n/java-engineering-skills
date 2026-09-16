@@ -3,11 +3,13 @@
 ## Resolve tools from the running JVM
 
 Use the matching JDK/vendor tool distribution where available and inspect
-`jcmd <pid> help` plus help for the selected command. Cross-JDK diagnostic
-tools are not a supported compatibility strategy. Check attach permissions,
+`jcmd <pid> help` plus help for the selected command. The JDK tool
+documentation does not promise that one release's tools work against another
+release's JVM. `jcmd` must run on the target's machine with the effective user
+and group that launched the JVM. Check attach permissions,
 PID/container namespaces, VM implementation, and writable target-side paths.
 Commands shown here are HotSpot examples, not portable across all JVMs.
-[JDK tool compatibility](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html).
+[jcmd](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jcmd.html).
 
 JFR was integrated into OpenJDK 11; Java 8 availability depends on the vendor
 and update/backport. Verify capabilities instead of automatically adding old

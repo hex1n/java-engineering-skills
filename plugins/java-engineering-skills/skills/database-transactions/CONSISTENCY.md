@@ -62,8 +62,10 @@ states in the same REPEATABLE READ transaction; do not reuse an old snapshot
 as proof of a just-completed competing update.
 
 `SKIP LOCKED` changes which work is observed and needs a starvation/recovery
-policy for job claiming; verify support before introducing it into a 5.7
-project. Transaction isolation does not replace business uniqueness constraints.
+policy for job claiming. `NOWAIT` and `SKIP LOCKED` exist from MySQL 8.0.1;
+a 5.7 deployment needs another claiming mechanism.
+[MySQL 8.0.1 release notes](https://dev.mysql.com/doc/relnotes/mysql/8.0/en/news-8-0-1.html).
+Transaction isolation does not replace business uniqueness constraints.
 
 Sources: [InnoDB isolation](https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html),
 [InnoDB lock scope](https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html),

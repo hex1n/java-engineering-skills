@@ -30,7 +30,7 @@ existing protocol, instead of internal JDK utilities or a dependency used only
 for equivalent encoding.
 
 ```java
-// Before: a third-party encoder using the basic alphabet and padding.
+// Before: commons-codec 1.5+, basic alphabet with padding and no line wrapping.
 String encoded = org.apache.commons.codec.binary.Base64.encodeBase64String(bytes);
 
 // After: the corresponding Java SE encoder.
@@ -38,6 +38,9 @@ String encoded = Base64.getEncoder().encodeToString(bytes);
 ```
 
 Choose basic, URL-safe, or MIME explicitly. Preserve padding and line wrapping.
+commons-codec 1.4 `encodeBase64String` chunked its output into lines; only
+1.5+ output matches the basic encoder.
+[commons-codec Base64](https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/binary/Base64.html).
 Decoder tolerance is also observable: MIME decoding ignores characters that
 basic decoding rejects. Validate existing inputs before replacing a decoder;
 matching successful encodings alone does not prove decoding compatibility.
