@@ -72,6 +72,17 @@ error and four statements that needed narrowing or a matching source:
   Windows `core.autocrlf=true` checkout already stores as CRLF, producing
   `\r\r\n` and a false failure. The fixture now normalizes line endings first.
 
+### Installation commands
+
+`claude plugin marketplace add .` fails with `Invalid marketplace source
+format. Try: owner/repo, https://..., or ./path`. The README now uses `./`,
+which both CLIs accept. Installed from a local clone on Windows: Claude Code
+registered the directory marketplace and installed the plugin at 0.6.0 (user
+scope), and `codex plugin marketplace add` plus `codex plugin add` installed
+the same version, whose cache contains the new OceanBase reference. Codex
+copies the plugin into a version-named cache directory, so a later change
+without a version bump may not be picked up.
+
 ### Executed validation
 
 - On Windows with Node.js 26.7.0, node scripts/check.mjs passed after both

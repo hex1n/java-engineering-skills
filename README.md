@@ -59,7 +59,7 @@ Lambda、方法引用、Stream、收集器、并行流、接口默认/静态方�
 ### Codex
 
 ```sh
-codex plugin marketplace add .
+codex plugin marketplace add ./
 codex plugin add java-engineering-skills@java-engineering-skills
 ```
 
@@ -72,7 +72,7 @@ codex plugin add java-engineering-skills@java-engineering-skills
 ### Claude Code
 
 ```sh
-claude plugin marketplace add .
+claude plugin marketplace add ./
 claude plugin install java-engineering-skills@java-engineering-skills
 ```
 
@@ -88,7 +88,9 @@ claude plugin install java-engineering-skills@java-engineering-skills
 claude --plugin-dir ./plugins/java-engineering-skills
 ```
 
-从 GitHub 安装时，marketplace 添加命令中的 `.` 可替换为仓库地址
+路径要写成 `./`：Claude Code 拒绝单独的 `.`，提示
+`Invalid marketplace source format. Try: owner/repo, https://..., or ./path`。
+从 GitHub 安装时，marketplace 添加命令中的 `./` 可替换为仓库地址
 `https://github.com/hex1n/java-engineering-skills`。
 
 插件格式依据：[OpenAI 插件打包文档](https://developers.openai.com/plugins/build/plugins)、
