@@ -5,7 +5,11 @@
 Read the evidence that needs no attach first: the GC log named by `-Xloggc`
 (Java 8) or `-Xlog:gc*:file=…` (unified logging, JDK 9+) in the live command
 line, `/proc/<pid>/status` and `limits`, and the cgroup memory and CPU files.
-A process configured with neither flag has no GC log to read. Together they
+Also inspect stdout/stderr and service-manager or container logs: Java 8's
+`-verbose:gc`, `-XX:+PrintGC`, or `-XX:+PrintGCDetails` can emit GC events
+without `-Xloggc`, and unified logging can target stdout/stderr. Check actual
+logging configuration and output destinations before reporting missing GC
+evidence. Together these sources
 answer full-collection counts, pause lengths, promotion failures, resident
 size, thread and descriptor counts, and whether a memory limit exists at all.
 Two Java 8 GC-log traps:

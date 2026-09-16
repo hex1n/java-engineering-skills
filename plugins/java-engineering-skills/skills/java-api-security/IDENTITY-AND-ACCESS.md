@@ -5,13 +5,18 @@
 Validate bearer tokens with a configured verifier: signature and allowed
 algorithms, issuer, intended audience, expiry/not-before, and the trusted key
 source. Decoding JWT claims is not verification. Note which checks the stack
-already performs: Spring Security's resource server validates the signature,
-`exp`/`nbf`, and `iss` out of the box with a 60-second default clock skew, but
-checks `aud` only when the audiences property or an `OAuth2TokenValidator` is
-configured. Bound clock skew, key refresh, and dependency failures using the
-deployed framework's configuration. Claims
+already performs: Spring Security 6.4's standard JWT setup verifies signatures
+and uses timestamp validation with a 60-second default clock skew. Issuer
+validation requires an expected issuer, such as Boot's `issuer-uri`, or an
+issuer validator; `jwk-set-uri` or a public key alone does not establish it.
+Audience validation requires the supported audiences property or an
+`OAuth2TokenValidator`. Inspect the actual decoder and validator chain,
+especially after customization, and test a validly signed token with the wrong
+issuer or audience. Bound clock skew, key refresh, and dependency failures
+using the deployed framework's configuration. Claims
 needed for authorization must be verified and mapped deliberately.
-[Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/6.4/servlet/oauth2/resource-server/jwt.html).
+[Spring resource-server JWT validation](https://docs.spring.io/spring-security/reference/6.4/servlet/oauth2/resource-server/jwt.html),
+[Boot 3.4.0 JWT configuration](https://github.com/spring-projects/spring-boot/blob/v3.4.0/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/security/oauth2/resource/servlet/OAuth2ResourceServerJwtConfiguration.java).
 
 Every repository read or write that takes a client-supplied ID takes the
 server-derived owner or tenant in the same predicate

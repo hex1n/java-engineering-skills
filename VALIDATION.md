@@ -91,8 +91,8 @@ the version thresholds and JEP numbers held throughout. Corrected:
   "must not update any other mapping", and read-to-write upgrade of
   `ReentrantReadWriteLock` is stated as impossible rather than unsupported.
 - Claims attached to pages that did not carry them: the `MatchException`
-  behavior (JEP 441, not 440), parallel streams running on the common
-  `ForkJoinPool`, MySQL `NOT IN` NULL semantics (the EXISTS-rewrite page), and
+  behavior (JEP 441, not 440), parallel-stream pool selection (qualified in
+  the follow-up below), MySQL `NOT IN` NULL semantics (the EXISTS-rewrite page), and
   range access stopping interval construction (the range-optimization page).
   Kafka's consumer, topic, and transactional-producer claims gained their own
   configuration pages.
@@ -113,7 +113,8 @@ the version thresholds and JEP numbers held throughout. Corrected:
   initialized to a literal, so inputs belong in non-final `@State` fields;
   MySQL reports changed rows while Connector/J reports matched rows, which
   decides what an affected-row count means; adding a `STORED` generated column
-  rebuilds an existing table while a `VIRTUAL` one does not.
+  rebuilds an existing table; online VIRTUAL addition depends on partitioning
+  and the complete ALTER operation, as corrected below.
 
 Not verified: link-liveness only was checked for roughly thirty low-risk
 javadoc and JEP URLs, and no behavior in this round was executed.
@@ -136,16 +137,45 @@ what the previous round had written from a single page:
   lease has expired; the documented requirement to pin the thread id across
   async, reactive, and RxJava calls; locks being advisory with
   `checkLockSyncedSlaves` on by default and a 1000 ms `slavesSyncTimeout`
-  whose expiry looks like contention; `RedLock` deprecated since 3.12.5 while
+  whose synchronization failures need separate classification from contention;
+  `RedLock` deprecated since 3.12.5 while
   `MultiLock` is not.
 - OPERATIONS.md now records that per-entry expiry in a hash is a client
   feature ("not supported by Redis or Valkey"), that the eviction task starts
   when the map instance is obtained, and that a Spring cache name without a
   configured TTL never expires.
 
-Not verified: the claims the vendor documents only in source form (renewal
-interval, `forceUnlock` side effects, semaphore permit leakage) were left out
-rather than restated, and no Redisson behavior was executed against a server.
+At that pass, source-only claims (renewal interval, `forceUnlock` side effects,
+semaphore permit leakage) were left out, and no Redisson behavior was executed
+against a server. The follow-up below adds versioned source evidence for the
+unlock and synchronization paths.
+
+### Review follow-up — seven semantic corrections (2026-09-16)
+
+The review of `74174f9..2a7ab3c` identified seven introduced documentation
+defects. All seven have been addressed in the working tree; source-based
+verification is distinct from runtime reproduction:
+
+| Finding | Correction and evidence |
+|---|---|
+| F1 | Redisson ownership checks and unlock are separate operations. Documented the expiry window, preservation of the original exception, and owner-checked cleanup; cited Redisson 3.52.0 lock implementations. |
+| F2 | Issuer validation requires issuer configuration or a validator. Added the JWK-only counterexample and wrong-issuer/audience checks; cited Boot 3.4.0 JWT configuration. |
+| F3 | Redisson 3.52.0 replica synchronization can fail with `NoSyncedSlavesException`. Separated this from ordinary contention and retained exceptional completion after attempted cleanup; cited `CommandAsyncService`. |
+| F4 | GC evidence may be in stdout/stderr or service logs without `-Xloggc`. Added Java 8 logging switches and destination checks, using the Java 8 tool reference. |
+| F5 | MySQL 8.0 online VIRTUAL addition is conditional on partitioning and the complete ALTER. Added algorithm/lock constraints and the Online DDL reference. |
+| F6 | Recursive map updates have no Java 8/later binary failure rule. Kept the detectable-recursion qualification and the cross-bin deadlock counterexample, citing Java 8 API and OpenJDK 21 source. |
+| F7 | OpenJDK 8 stream task forking depends on the invoking worker's pool. Distinguished this implementation from Stream API guarantees, citing `ForkJoinTask.fork` and stream task source. |
+
+The affected reference files contain the primary-source links. No executable
+examples or skill entrypoint routing changed. Runtime Redis, MySQL, Spring
+security, and cross-thread deadlock reproductions remain unexecuted; the
+failure scenarios are documented for validation on the deployed versions.
+
+Executed after the corrections: `node scripts/check.mjs` passed (ten skills,
+98 local links, 32 rules); all 14 `node --test tests/*.test.mjs` tests passed;
+the official skill-creator `quick_validate.py` passed for all six affected
+skills; both Claude plugin/marketplace validators and `git diff --check`
+passed. These are structural checks, not middleware behavior evidence.
 
 Not executed: `claude plugin eval` reports early access on this account, so no
 eval case has been run by the runner. The gate was re-confirmed by running the

@@ -65,25 +65,41 @@ The documented contract, when the project uses this client:
 - Only the owning thread may unlock, or `IllegalMonitorStateException` is
   thrown. After the lease has expired the lock no longer exists, so a bare
   `finally { lock.unlock(); }` throws from the finally block and replaces the
-  business exception. Guard it with `isHeldByCurrentThread()`.
+  business exception. `isHeldByCurrentThread()` is only a preliminary check:
+  the lease can expire between that check and `unlock()`. Handle ownership
+  loss and other cleanup failures while preserving an existing business
+  exception (for example, as the primary exception with cleanup suppressed).
+  If business work succeeded, surface cleanup failure according to the
+  operation's contract. Retain owner-checked unlock; `forceUnlock()` can
+  release a successor's lock.
 - In the async, reactive, and RxJava APIs "a single logical operation may run
   across more than one thread, so the thread that acquires a lock may not be
   the one that releases it": capture the thread id once and pass it to
   `lock`, `tryLock`, and `unlock`.
 - These locks are advisory and their safety "depends on the deployment
   topology". `checkLockSyncedSlaves` is on by default: when replicas do not
-  acknowledge within `slavesSyncTimeout` (1000 ms), Redisson releases the lock
-  and the acquisition fails, which reads like contention rather than
-  replication lag.
+  acknowledge within `slavesSyncTimeout` (1000 ms), acquisition can fail on
+  replica synchronization. In Redisson 3.52.0, a required synchronization
+  with zero acknowledgements raises `NoSyncedSlavesException`; cleanup is
+  attempted and the operation completes exceptionally. Classify this
+  separately from `tryLock` returning false on contention, and verify the
+  exception path for the deployed client version.
 - `RedLock` is deprecated (since 3.12.5) in favor of a plain lock with the
   replica check, and `RFencedLock` where the protected resource can verify a
   monotonic token; `MultiLock` is not deprecated.
 
 Sources: [Redisson locks](https://redisson.pro/docs/data-and-services/locks-and-synchronizers/),
-[Redisson configuration](https://redisson.pro/docs/configuration/).
+[Redisson configuration](https://redisson.pro/docs/configuration/),
+[Redisson 3.52.0 ownership and unlock](https://github.com/redisson/redisson/blob/redisson-3.52.0/redisson/src/main/java/org/redisson/RedissonBaseLock.java),
+[Redisson 3.52.0 lock script](https://github.com/redisson/redisson/blob/redisson-3.52.0/redisson/src/main/java/org/redisson/RedissonLock.java),
+[Redisson 3.52.0 synchronization failures](https://github.com/redisson/redisson/blob/redisson-3.52.0/redisson/src/main/java/org/redisson/command/CommandAsyncService.java).
 
 ## Verification scenarios
 
+- Ownership check succeeds, then the lease expires before unlock: cleanup
+  preserves the original business exception and leaves a successor's lock intact.
+- Replica synchronization fails during acquisition: no protected work starts,
+  and the failure is reported separately from ordinary contention.
 - Acquisition times out after the server may have accepted it: no unconfirmed
   owner starts protected work; recovery does not delete a successor's lease.
 - Owner A pauses past expiry; B acquires and writes; A resumes. Verify how the

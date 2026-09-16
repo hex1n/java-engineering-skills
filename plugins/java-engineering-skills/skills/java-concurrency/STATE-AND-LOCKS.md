@@ -27,9 +27,13 @@ snapshot. If a cross-key invariant or consistent report is required, establish
 one synchronization/snapshot protocol followed by all participants.
 
 A map computation callback "should be short and simple, and must not attempt
-to update any other mappings of this map"; a recursive update from inside the
-callback deadlocks on Java 8 and throws `IllegalStateException` on later
-releases. Blocking remote work inside one blocks other updates too. Mutable
+to update any other mappings of this map". Recursive updates can hang or
+throw `IllegalStateException`; the API promises the exception only for
+detectable recursive updates that would otherwise never complete. Later
+JDKs still permit deadlock when two callbacks each wait for a bin held by
+the other. Keep callbacks free of updates to the same map, and investigate
+the actual call structure and JDK implementation when diagnosing a hang.
+Blocking remote work inside one can block competing updates too. Mutable
 values need separate protection. For producer/consumer work, use an explicitly
 bounded queue and choose `offer`, timed `offer`, or `put` from the caller's
 blocking/rejection contract. Test full queues and failed consumers; BlockingQueue
@@ -37,6 +41,8 @@ has no universal close operation, so define termination and unblock ownership.
 
 Sources: [Java 8 ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html),
 [Java 8 BlockingQueue](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/BlockingQueue.html).
+
+Implementation reference: [OpenJDK 21 ConcurrentHashMap](https://github.com/openjdk/jdk/blob/jdk-21%2B35/src/java.base/share/classes/java/util/concurrent/ConcurrentHashMap.java).
 
 ## Choose a lock from requirements
 

@@ -84,16 +84,21 @@ UNIQUE KEY uk_active_business (tenant_id, business_key, active_marker)
 
 Require tenant_id and business_key to be NOT NULL, select their collation,
 and check indexed generated-column support at the exact version. On an existing
-table, adding this marker as `STORED` forces a full rebuild with no concurrent
-DML, while a `VIRTUAL` generated column can be added in place and still carries
-a unique secondary index; choose the form from the migration window. Active rows
+InnoDB table in MySQL 8.0, adding this marker as `STORED` requires a rebuild
+without concurrent DML. Adding a `VIRTUAL` column supports online algorithms
+on non-partitioned tables; partitioned tables do not support INPLACE for this
+addition. VIRTUAL columns can carry unique secondary indexes, but check the
+exact release, partitioning, and complete ALTER combination, including index
+creation. Specify the required `ALGORITHM`/`LOCK` so an unsupported migration
+fails instead of silently accepting a more blocking operation. Active rows
 share marker 1 and conflict; historical rows use NULL and may coexist. This
 does not define restoration automatically: restoring an old row must conflict
 when another active row owns the key. Preflight existing duplicates before
 adding the constraint. A unique prefix index can collapse distinct long keys;
 it is not interchangeable with uniqueness over the complete business value.
 [MySQL unique indexes](https://dev.mysql.com/doc/refman/8.0/en/create-index.html),
-[generated columns](https://dev.mysql.com/doc/refman/8.0/en/create-table-generated-columns.html).
+[generated columns](https://dev.mysql.com/doc/refman/8.0/en/create-table-generated-columns.html),
+[MySQL 8.0 online DDL operations](https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html).
 
 Validate duplicate concurrent inserts, null/invalid values, cross-tenant
 relationships, deletion/recreation/restoration, and serialization round trips.

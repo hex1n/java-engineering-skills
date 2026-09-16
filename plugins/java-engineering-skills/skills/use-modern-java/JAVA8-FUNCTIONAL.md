@@ -127,16 +127,21 @@ use a valid collector or associative reduction with a true identity. Subtraction
 rounding after each addition, and a non-neutral seed can change answers when
 work is partitioned. Compare sequential/parallel results, including empty input.
 
-Parallel streams expose no executor parameter and run on the common
-`ForkJoinPool`, so request context, transaction state, pool isolation, and
-bounded remote-call admission must not be assumed. For
+Parallel streams expose no executor parameter. OpenJDK 8 stream tasks fork
+into the current `ForkJoinPool` when invoked from one of its workers, or
+the common pool otherwise; the calling thread may also perform work. This
+is an implementation detail, not a Stream API executor-selection guarantee.
+Inspect the actual invocation context and runtime before attributing pool
+contention. Request context, transaction state, pool isolation, and bounded
+remote-call admission must not be assumed. For
 blocking database/HTTP work needing those controls, choose an explicitly managed
 execution mechanism. Measure representative data, core limits, allocation, and
 competition with other work; `parallel()` alone is not an optimization result.
 
 Sources: [Java 8 parallelism guidance](https://docs.oracle.com/javase/tutorial/collections/streams/parallelism.html),
 [Stream reduction and ordered traversal](https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html),
-[ForkJoinPool.commonPool](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html#commonPool--).
+[ForkJoinTask.fork](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinTask.html#fork--),
+[OpenJDK 8 stream tasks](https://github.com/openjdk/jdk8u/blob/master/jdk/src/share/classes/java/util/stream/AbstractTask.java).
 
 ## interface-default-methods
 
