@@ -1,6 +1,6 @@
 ---
 name: java-design
-description: Choose a Java module interface or GoF pattern from concrete variation, lifecycle, and caller contracts. Use for extensibility asks, pattern selection, or structural refactoring that must keep public contracts.
+description: Choose a Java module interface or GoF pattern from concrete variation, lifecycle, and caller contracts. Use for extensibility asks, pattern selection, or structural refactoring that must keep public contracts, including asks phrased as 设计模式, 扩展性, 接口怎么设计, or 解耦.
 ---
 
 # Java Design

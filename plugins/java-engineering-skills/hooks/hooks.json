@@ -1,0 +1,17 @@
+{
+  "description": "Ask for the owning Java engineering skill before the first edit it covers in a session",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/skill-gate.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

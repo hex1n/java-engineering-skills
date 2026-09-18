@@ -1,5 +1,47 @@
 # Validation record
 
+## Version 0.8.0 — edit-time skill gate
+
+### Why
+
+Local transcripts from 2026-09-08 to 2026-09-18 (`scripts/skill-gate-stats.mjs`)
+showed the skills were almost never loaded before the edits they cover:
+`java-testing` before 0 of 12 Claude Code and 0 of 8 Codex transcripts that
+edited `src/test` Java files; `use-modern-java` before 0 of 13 and 0 of 18.
+The one late `java-testing` load came after the user asked for it mid-turn.
+Description matching runs when a task starts; a bug fix or plan landing
+reaches test and SQL edits as intermediate steps, and a workflow skill that
+owns the task does not re-check plugin skills.
+
+### Changes
+
+- `hooks/skill-gate.mjs`, wired through `hooks/hooks.json` (Claude Code) and
+  the `hooks` entry of `.codex-plugin/plugin.json` (Codex CLI and Desktop).
+  Test Java files and project SQL/mapper files block the first edit until
+  `java-testing` or `database-transactions` is loaded; other Java edits and
+  import or content signals add a one-time reminder. Blocking uses exit code 2;
+  Claude Code honored it under `bypassPermissions` (below), and the Codex
+  hooks reference documents the same exit code, not yet exercised.
+- `jvm-performance` and `java-design` descriptions name common Chinese
+  phrasings; their need arises in the request, which description matching
+  already sees, so they are not gated.
+
+### Executed validation for 0.8.0
+
+- `node --test tests/*.test.mjs` passed, including the new classifier,
+  shell-target, Codex patch, transcript-scan, and process exit-code tests.
+  `node scripts/check.mjs` passed.
+- Claude Code 2.1.273, `claude -p --plugin-dir` with `bypassPermissions`,
+  Sonnet: the first `src/test` edit was blocked with the hook reason, the
+  model invoked `java-engineering-skills:java-testing`, and the retried edit
+  succeeded. A general-purpose subagent was gated the same way under its own
+  `agent_id`. The soft reminder for an `@Transactional` service reached the
+  subagent as hook additional context; the subagent did not load the skills.
+- Not executed: Codex. The hook input shape for Codex code-mode `exec`
+  edits, `PLUGIN_ROOT` expansion under `commandWindows`, and hook trust in
+  Codex Desktop are implemented from the Codex hooks reference but untested;
+  the probe run stopped on an account usage limit.
+
 ## Version 0.7.0 — accuracy corrections, OceanBase, Boot 2.x lines, JVM evidence, skill rewrite
 
 ### Audit round: descriptions, single sources, steps, and eval cases

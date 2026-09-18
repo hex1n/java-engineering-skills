@@ -1,6 +1,6 @@
 ---
 name: jvm-performance
-description: Diagnose Java service CPU, latency, allocation, GC, or memory problems and verify performance changes. Use for profiling, blocked-thread and GC pause evidence, JVM incident triage, capacity regressions, or JMH benchmark design.
+description: Diagnose Java service CPU, latency, allocation, GC, or memory problems and verify performance changes. Use for profiling, blocked-thread and GC pause evidence, JVM incident triage, capacity regressions, or JMH benchmark design, including asks phrased as 接口慢, CPU 飙高, 频繁 Full GC, OOM, or 内存泄漏.
 ---
 
 # JVM Performance

@@ -62,6 +62,29 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 参见 [Codex skills](https://developers.openai.com/codex/skills) 和
 [Claude Code skills](https://code.claude.com/docs/en/skills)。
 
+### 编辑前的 skill 检查
+
+按 `description` 自动选用只发生在任务开始时。修 bug、落地方案这类任务里，
+写测试和改 SQL 只是中间一步，代理通常不会为此再去加载 skill。插件因此带了
+一个 `PreToolUse` hook（`hooks/skill-gate.mjs`，Claude Code 与 Codex CLI/Desktop
+共用），在编辑文件前检查对应 skill 是否已在本会话加载：
+
+| 改动 | skill | 处理 |
+|---|---|---|
+| `src/test/**/*.java` | `java-testing` | 未加载时拦下第一次编辑，要求加载后重试 |
+| MyBatis mapper XML，`src/`、`db/`、`sql/`、`migration(s)/`、`schema/` 下的 `*.sql` | `database-transactions` | 同上 |
+| 其他 `*.java` | `use-modern-java` | 提醒 |
+| import 或写入内容涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
+
+每个 skill 在每个会话（子代理单独计）最多拦一次或提醒一次；已加载的不再
+打扰。临时目录、scratchpad 和 `.scratch` 下的文件不检查。脚本出错时放行，
+不会阻止编辑。`jvm-performance` 与 `java-design` 的需求通常在提问时出现，
+仍由 `description` 选用。
+
+Codex 按 hook 内容的哈希记录信任，未信任的 hook 会被跳过。首次安装以及每次
+升级改动了 hook 的插件版本后，都需要在 Codex CLI 或 Desktop 中重新信任本插件的
+`PreToolUse` hook。
+
 ### Codex
 
 ```sh
@@ -111,6 +134,7 @@ claude --plugin-dir ./plugins/java-engineering-skills
 plugins/java-engineering-skills/
   .codex-plugin/plugin.json            Codex 插件清单
   .claude-plugin/plugin.json           Claude Code 插件清单
+  hooks/                               编辑前的 skill 检查（两个运行时共用）
   skills/
     use-modern-java/                  Java 8–21 语言与标准库
     java-design/                      设计模式与模块契约
@@ -129,6 +153,7 @@ CONTRIBUTING.md                       规则准入与验证流程
 VALIDATION.md                         各版本执行过的验证与缺口
 scripts/check.mjs                       离线结构与引用检查
 scripts/check-examples.mjs              编译与契约示例验证
+scripts/skill-gate-stats.mjs            本机会话中 skill 是否先于相关编辑加载
 tests/*.test.mjs                       检查脚本的回归测试
 tests/examples/                        Java 8/11/17/21 验证样例
 ```
@@ -142,6 +167,13 @@ node scripts/check.mjs
 node --test tests/*.test.mjs
 claude plugin validate ./plugins/java-engineering-skills
 claude plugin validate ./.claude-plugin/marketplace.json
+```
+
+统计本机 Claude Code 与 Codex 会话里，各 skill 是否在相关编辑之前加载
+（`--verbose` 列出漏加载的会话）：
+
+```sh
+node scripts/skill-gate-stats.mjs --since 2026-09-01 --verbose
 ```
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例

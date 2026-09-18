@@ -19,7 +19,9 @@ scope. Keep version-resolution rules in `VERSION.md`.
 For engineering skills, record the concrete task trigger, mechanism, failure
 conditions, relevant platform/client versions, and observable validation. Keep
 the entry short and link substantial topic references only at the applicable
-branch. Update `SKILLS.md` when adding a skill and `ROADMAP.md` when a suggested
+branch. Update `SKILLS.md` when adding a skill, and add a rule to
+`hooks/skill-gate.mjs` when a file path or import identifies edits it owns;
+update `ROADMAP.md` when a suggested
 direction becomes implemented. Avoid promoting reference topics into separate
 skills unless they have distinct invocation and execution needs.
 
