@@ -18,12 +18,12 @@ const PATH_RULES = [
     (/\.sql$/i.test(p) && /(^|\/)(src|db|sql|migrations?|schema)\//i.test(p))
     || /(^|\/)(db\/migration|flyway|liquibase)\//i.test(p)
     || (/\.xml$/i.test(p) && (/(^|\/)(mybatis|mappers?)\//i.test(p) || /(Mapper|Dao)\.xml$/.test(p) || /mybatis\.org\/\/DTD Mapper/.test(text))) },
-  { skill: 'use-modern-java', hard: false, test: p => /\.java$/i.test(p) && !/(^|\/)src\/test\//.test(p) },
+  { skill: 'use-modern-java', hard: true, test: p => /\.java$/i.test(p) },
   { skill: 'spring-boot-engineering', hard: false, test: p => /(^|\/)(application|bootstrap)[\w-]*\.(ya?ml|properties)$/i.test(p) },
 ];
 
-// Content rules read the file's imports plus the text being written. They
-// remind only: an import does not prove the edit is about that concern.
+// Content rules read only the text being written: imports already in the file
+// say nothing about this edit. They remind only.
 const CONTENT_RULES = [
   { skill: 'spring-boot-engineering', pattern: /@(Transactional|Cacheable|CacheEvict|CachePut|Async|Configuration|ConfigurationProperties|SpringBootApplication|ConditionalOn\w+)\b|import org\.springframework\.boot\./ },
   { skill: 'database-transactions', pattern: /@Transactional\b|\bJdbcTemplate\b|\bSqlSession\b|\bEntityManager\b|\bFOR UPDATE\b|import org\.apache\.ibatis\.|import (javax|jakarta)\.persistence\./i },
@@ -41,7 +41,15 @@ const SCRATCH = /\/(Temp|tmp|scratchpad|\.scratch)\//i;
 const FILE_TOKEN = /(?<![\w$.:\\/-])[\w.:\\/-]+\.(java|sql|xml|ya?ml|properties)\b/gi;
 // Shell forms that write the files they name. Reads are not gated.
 const IN_PLACE = /\bsed\s+(-\w*i|--in-place)|\bperl\s+-\w*i/;
-const SCRIPT_WRITE = /open\([^)]*,\s*['"][wa]|\.write_text\(|writeFileSync\(|WriteAll(Text|Lines|Bytes)/;
+// Script calls whose argument, or whose receiver, is the file written. Copy
+// and move calls write their second argument.
+const WRITE_CALL = /\b(open|(?:write|append|unlink|rm)FileSync|(?:write|append|unlink|rm)Sync|os\.(?:remove|unlink)|(?:Write|Append)All(?:Text|Lines|Bytes))\s*\(/g;
+const COPY_CALL = /\b(?:shutil\.(?:copy2?|copyfile|move)|copyFileSync|renameSync|File\]::(?:Copy|Move))\s*\(/g;
+const WRITE_METHOD = /\.(?:write_(?:text|bytes)|unlink)\s*\(/g;
+const WRITE_MODE = /^\s*(?:mode\s*=\s*)?[rbfu]*['"][^'"]*[wax+]/;
+// Targets taken from outside the script cannot be resolved from its text.
+const DYNAMIC = /\bargv\b|\$args\b|\benviron\b|process\.env|\b(?:r?glob|listdir|walk|iterdir|input)\s*\(/;
+const OPEN = '([{', CLOSE = ')]}';
 const WRITE_TARGET = [
   /(?<![<>=&|-])>{1,2}\s*["']?([^\s"';|&<>]+)/g,
   /\b(?:tee(?:\s+-a)?|Set-Content|Add-Content|Out-File)\s+(?:-(?:Path|FilePath|LiteralPath)\s+)?["']?([^\s"';|&]+)/g,
@@ -70,12 +78,144 @@ function segments(text) {
   return parts;
 }
 
-function shellTargets(text) {
-  const tokens = text => [...text.matchAll(FILE_TOKEN)].map(match => match[0]);
-  if (SCRIPT_WRITE.test(text)) return tokens(text);
+const fileTokens = text => [...text.matchAll(FILE_TOKEN)].map(match => match[0]);
+
+// Top-level arguments of the call whose opening parenthesis ends at `start`.
+function callArgs(text, start, limit = 2) {
+  const args = [];
+  let current = '';
+  let depth = 0;
+  let quote = null;
+  for (let i = start; i < text.length && args.length < limit; i++) {
+    const char = text[i];
+    if (quote) {
+      if (char === '\\') { current += char + (text[++i] ?? ''); continue; }
+      if (char === quote) quote = null;
+    } else if (char === '\'' || char === '"' || char === '`') quote = char;
+    else if (OPEN.includes(char)) depth++;
+    else if (CLOSE.includes(char) && depth-- === 0) { args.push(current); return args; }
+    else if (char === ',' && depth === 0) { args.push(current); current = ''; continue; }
+    current += char;
+  }
+  if (current) args.push(current);
+  return args;
+}
+
+// The rest of the statement from `start`: to a newline or `;` outside brackets and quotes.
+function statement(text, start) {
+  let depth = 0;
+  let quote = null;
+  let i = start;
+  for (; i < text.length && i - start < 8000; i++) {
+    const char = text[i];
+    if (quote) {
+      if (char === '\\') i++;
+      else if (char === quote) quote = null;
+    } else if (char === '\'' || char === '"' || char === '`') quote = char;
+    else if (OPEN.includes(char)) depth++;
+    else if (CLOSE.includes(char)) depth = Math.max(0, depth - 1);
+    else if ((char === '\n' || char === ';') && depth === 0) break;
+  }
+  return text.slice(start, i);
+}
+
+// The receiver expression that ends just before `end`: names, dots, and bracketed groups.
+function receiver(text, end) {
+  let i = end;
+  for (;;) {
+    if (CLOSE.includes(text[i - 1])) {
+      let depth = 0;
+      do {
+        if (CLOSE.includes(text[--i])) depth++;
+        else if (OPEN.includes(text[i])) depth--;
+      } while (depth > 0 && i > 0);
+    } else if (/[\w$.]/.test(text[i - 1] || '')) i--;
+    else return text.slice(i, end);
+  }
+}
+
+/**
+ * Files an inline script writes, or null when there is no script write. Each
+ * write target is resolved through literal assignments; a target that comes
+ * from argv, a directory walk, or an unassigned name falls back to every file
+ * the script names, so strings in the written text do not count on their own.
+ */
+function scriptTargets(raw) {
+  // Codex exec input carries the script inside a JS string literal.
+  const text = /\\[n"]/.test(raw) ? raw.replace(/\\n/g, '\n').replace(/\\(["'\\])/g, '$1') : raw;
+  const writes = [];
+  for (const match of text.matchAll(WRITE_CALL)) {
+    const [target, mode = ''] = callArgs(text, match.index + match[0].length);
+    if (target !== undefined && (match[1] !== 'open' || WRITE_MODE.test(mode))) writes.push(target);
+  }
+  for (const match of text.matchAll(COPY_CALL)) {
+    const [, target] = callArgs(text, match.index + match[0].length);
+    if (target !== undefined) writes.push(target);
+  }
+  for (const match of text.matchAll(WRITE_METHOD)) writes.push(receiver(text, match.index));
+  if (!writes.length) return null;
+  // Values a name takes: `name = …` (shell `$name` included) and loop headers,
+  // tuple targets too. A function parameter's value is not in view.
+  const assignments = name => {
+    const bare = name.replace(/^\$/, '');
+    const own = `(?<![\\w$])\\$?${bare}(?![\\w$])`;
+    const loopNames = `[\\w$,\\s()\\[\\]]*?${own}[\\w$,\\s()\\[\\]]*?`;
+    const pattern = new RegExp(`(?:^|[^\\w$.])\\$?${bare}\\s*(?::[^=\\n]*)?=(?!=)`
+      + `|\\bfor\\s+${loopNames}\\s+in\\s+([\\s\\S]{0,4000}?):[ \\t]*\\r?\\n`
+      + `|\\bfor(?:each)?\\s*\\(\\s*(?:const|let|var)?\\s*${loopNames}\\s+(?:in|of)\\s+(?<list>)`, 'g');
+    return [...text.matchAll(pattern)].map(match => {
+      const end = match.index + match[0].length;
+      if (match[1] !== undefined) return match[1];
+      return match.groups.list !== undefined ? callArgs(text, end, 1)[0] ?? '' : statement(text, end);
+    });
+  };
+  const isParameter = name => {
+    const own = new RegExp(`(?<![\\w$])\\$?${name.replace(/^\$/, '')}(?![\\w$])`);
+    const lists = /\b(?:def|function)\s*[\w$-]*\s*\(([^)]*)\)|\bparam\s*\(([^)]*)\)|\(([^()]*)\)\s*=>|([\w$]+)\s*=>|\blambda\s+([^:]*):/g;
+    return [...text.matchAll(lists)].some(match => own.test(match.slice(1).join(' ')));
+  };
   const targets = [];
+  let resolved = true;
+  // A literal file name settles the target; otherwise follow the names it is built from.
+  const resolve = (expr, depth) => {
+    const found = fileTokens(expr);
+    if (found.length) return targets.push(...found);
+    if (DYNAMIC.test(expr)) resolved = false;
+    const code = expr.replace(/[rbfuRBFU]*(['"`])(?:\\.|(?!\1)[^\\])*\1/g, ' ');
+    const names = [
+      ...(code.match(/(?<![\w$.-])[A-Za-z_$][\w$]*(?![\w$]*\s*[(.-])/g) || []),
+      // Shell variables and f-string fields interpolated into string literals.
+      ...[...expr.matchAll(/\$\{?([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\}/g)].map(match => match[1] ?? match[2]),
+    ];
+    for (const name of new Set(names)) {
+      const values = assignments(name);
+      if (!values.length || depth === 0 || isParameter(name)) resolved = false;
+      else values.forEach(value => resolve(value, depth - 1));
+    }
+    // A receiver such as `CASES` in `CASES.items()` is followed when the script
+    // assigns it; unassigned receivers are modules (`os.path`) and say nothing.
+    for (const name of new Set(code.match(/(?<![\w$.-])[A-Za-z_$][\w$]*(?=\s*\.)/g) || [])) {
+      if (depth > 0) assignments(name).forEach(value => resolve(value, depth - 1));
+    }
+  };
+  writes.forEach(expr => resolve(expr, 2));
+  return resolved ? targets : fileTokens(text);
+}
+
+function shellTargets(text) {
+  // A shell variable target (`> $f`, `Set-Content $H`) takes its assigned value.
+  const tokens = target => {
+    const variable = /^\$\{?([A-Za-z_]\w*)\}?$/.exec(target);
+    if (!variable) return fileTokens(target);
+    const assigned = new RegExp(`(?:^|[\\s;(])\\$?${variable[1]}\\s*=\\s*["']?([^\\s"';]+)`, 'g');
+    return [...text.matchAll(assigned)].flatMap(match => fileTokens(match[1]));
+  };
+  const targets = [...(scriptTargets(text) || [])];
   for (const segment of segments(text)) {
-    if (IN_PLACE.test(segment)) targets.push(...tokens(segment));
+    if (IN_PLACE.test(segment)) {
+      targets.push(...fileTokens(segment));
+      for (const match of segment.matchAll(/\$\{?[A-Za-z_]\w*\}?/g)) targets.push(...tokens(match[0]));
+    }
     for (const pattern of WRITE_TARGET) for (const match of segment.matchAll(pattern)) targets.push(...tokens(match[1]));
     const copy = /\b(?:cp|mv|Copy-Item|Move-Item)\s+.*\s["']?([^\s"']+)["']?\s*$/.exec(segment);
     if (copy) targets.push(...tokens(copy[1]));
@@ -151,26 +291,17 @@ export function skillLoads(toolName, toolInput) {
   return [...found];
 }
 
-function importLines(file) {
-  try {
-    const stat = fs.statSync(file);
-    if (!stat.isFile() || stat.size > 1_000_000) return '';
-    return fs.readFileSync(file, 'utf8').split('\n').filter(line => /^\s*import\s/.test(line)).join('\n');
-  } catch { return ''; }
-}
-
 /** Skills that own the given edits: [{skill, hard, file}], one entry per skill, hard wins. */
-export function classify(edits, { readImports = importLines } = {}) {
+export function classify(edits) {
   const hits = new Map();
   const add = (skill, hard, file) => {
     const previous = hits.get(skill);
     if (!previous || (hard && !previous.hard)) hits.set(skill, { skill, hard, file });
   };
   for (const { path: file, content = '' } of edits) {
-    const text = `${file.endsWith('.java') ? readImports(file) : ''}\n${content}`;
     for (const rule of PATH_RULES) if (rule.test(file, content)) add(rule.skill, rule.hard, file);
     if (!/\.java$/i.test(file)) continue;
-    for (const rule of CONTENT_RULES) if (rule.pattern.test(text)) add(rule.skill, false, file);
+    for (const rule of CONTENT_RULES) if (rule.pattern.test(content)) add(rule.skill, false, file);
   }
   return [...hits.values()];
 }
@@ -219,14 +350,14 @@ function message(hits, hard) {
 }
 
 /** Decides one hook call. Returns {block, context, loaded, prompted} with state updates. */
-export function decide(input, state, { findLoaded = () => new Set(), readImports } = {}) {
+export function decide(input, state, { findLoaded = () => new Set() } = {}) {
   const loaded = new Set(state.loaded || []);
   const prompted = new Set(state.prompted || []);
   for (const skill of skillLoads(input.tool_name, input.tool_input)) loaded.add(skill);
   const cwd = input.cwd || process.cwd();
   const edits = extractEdits(input.tool_name, input.tool_input)
     .map(edit => ({ ...edit, path: posix(path.resolve(cwd, edit.path)) }));
-  let hits = classify(edits, { readImports }).filter(hit => !loaded.has(hit.skill) && !prompted.has(hit.skill));
+  let hits = classify(edits).filter(hit => !loaded.has(hit.skill) && !prompted.has(hit.skill));
   if (hits.length) {
     for (const skill of findLoaded(hits.map(hit => hit.skill))) loaded.add(skill);
     hits = hits.filter(hit => !loaded.has(hit.skill));

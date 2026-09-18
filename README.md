@@ -71,10 +71,10 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 
 | 改动 | skill | 处理 |
 |---|---|---|
-| `src/test/**/*.java` | `java-testing` | 未加载时拦下第一次编辑，要求加载后重试 |
+| 所有 `*.java` | `use-modern-java` | 未加载时拦下第一次编辑，要求加载后重试 |
+| `src/test/**/*.java` | `java-testing` | 同上 |
 | MyBatis mapper XML，`src/`、`db/`、`sql/`、`migration(s)/`、`schema/` 下的 `*.sql` | `database-transactions` | 同上 |
-| 其他 `*.java` | `use-modern-java` | 提醒 |
-| import 或写入内容涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
+| 本次写入的内容（不含文件原有 import）涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
 
 每个 skill 在每个会话（子代理单独计）最多拦一次或提醒一次；已加载的不再
 打扰。临时目录、scratchpad 和 `.scratch` 下的文件不检查。脚本出错时放行，

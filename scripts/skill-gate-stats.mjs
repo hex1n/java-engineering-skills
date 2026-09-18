@@ -44,7 +44,7 @@ function analyze(text) {
         const entry = outcome.get(skill);
         if (entry && !entry.before) entry.after = true;
       }
-      const hits = classify(extractEdits(toolName, toolInput), { readImports: () => '' });
+      const hits = classify(extractEdits(toolName, toolInput));
       for (const hit of hits) {
         const entry = outcome.get(hit.skill);
         if (!entry) outcome.set(hit.skill, { hard: hit.hard, before: loaded.has(hit.skill), after: false, file: hit.file });

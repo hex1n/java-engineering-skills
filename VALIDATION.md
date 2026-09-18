@@ -1,5 +1,43 @@
 # Validation record
 
+## Version 0.8.1 — gate every Java edit, fewer false targets
+
+### Why
+
+Session `4a5e1adb` (2026-09-18) edited a `*Processor.java` class
+under `src/main`. The gate only reminded, naming `use-modern-java` and
+`java-concurrency`; the model continued without loading either. The
+`java-concurrency` hit came from an existing `java.util.concurrent` import,
+not from the edit. While changing the gate, a Python script that rewrote
+`tests/skill-gate.test.mjs` was blocked for `java-testing`, because every
+`*.java` string in a script that writes any file counted as a target.
+
+### Changes
+
+- `use-modern-java` blocks the first edit of any `*.java` file, test files
+  included.
+- Content rules match only the text being written, not the file's imports.
+- Inline scripts: each write, copy, or delete call's target is resolved
+  through literal assignments, loop headers (tuple targets, multi-line
+  literals), shell variables, and interpolated strings. A target taken from
+  argv, a directory walk, a function parameter, or an unassigned name falls
+  back to every Java path in the script. Shell redirects, `sed -i`, and
+  copy targets in the same command are still checked, and `$VAR` targets
+  resolve to their assigned value.
+
+### Executed validation for 0.8.1
+
+- `node --test tests/*.test.mjs` passed (23 tests) and `node scripts/check.mjs`
+  passed.
+- Old and new target extraction were compared over all 2,378 local Claude
+  Code and Codex transcripts (5,832 shell or exec calls that name a Java
+  file). 105 calls lost at least one Java target. The 25 of those where the
+  lost path sits near a write call were each read: the script wrote a doc, a
+  `.scratch` copy, a mutation script, or a javac argument file, and the Java
+  path was data. 400 calls gained a target, mostly `Set-Content $path`,
+  `cp "$SP/x.bak" "$F"`, and `mv "$F.bak" "$F"` restores that the 0.8.0 gate
+  missed.
+
 ## Version 0.8.0 — edit-time skill gate
 
 ### Why
