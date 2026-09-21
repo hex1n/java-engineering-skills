@@ -7,7 +7,7 @@ on:
 
 jobs:
   checks:
-    # The skill gate runs on every contributor's machine, so path, temp-directory,
+    # The pre-edit skill check runs on every contributor's machine, so path, temp-directory,
     # and line-ending behaviour is verified on all three host platforms.
     runs-on: ${{ matrix.os }}
     strategy:

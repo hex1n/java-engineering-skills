@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, decide, extractEdits, isScratch, loadedInTranscript, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/skill-gate.mjs';
+import { classify, decide, extractEdits, isScratch, loadedInTranscript, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const GATE = path.join(ROOT, 'plugins/java-engineering-skills/hooks/skill-gate.mjs');
+const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
 const skills = edits => classify(edits).map(hit => `${hit.skill}:${hit.hard ? 'hard' : 'soft'}`).sort();
 const edit = (file, content = '') => ({ tool_name: 'Edit', cwd: '/repo', tool_input: { file_path: file, new_string: content } });
 
@@ -28,7 +28,7 @@ test('content rules remind from the written text only', t => {
     ['database-transactions', 'redis-engineering', 'spring-boot-engineering', 'use-modern-java']);
   assert.ok(hits.every(hit => hit.hard === (hit.skill === 'use-modern-java')));
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-gate-src-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-src-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'Processor.java');
   fs.writeFileSync(file, 'import java.util.concurrent.TimeUnit;\nclass Processor {}\n');
@@ -147,7 +147,7 @@ test('skill loads are recognised from the Skill tool and SKILL.md reads', () => 
 });
 
 test('transcript scan ignores skill listings and finds real loads in both runtimes', t => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-gate-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 't.jsonl');
   const lines = [
@@ -183,14 +183,14 @@ test('hard rules block once, soft rules remind once, loaded skills pass', () => 
 });
 
 test('the hook process exits 2 with a reason, then 0 on retry', t => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-gate-data-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-data-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const input = JSON.stringify({ session_id: 's1', cwd: '/repo', ...edit('/repo/src/test/java/a/FooTest.java') });
-  const run = () => spawnSync(process.execPath, [GATE], { input, encoding: 'utf8', env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
+  const run = () => spawnSync(process.execPath, [HOOK], { input, encoding: 'utf8', env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
   const first = run();
   assert.equal(first.status, 2);
   assert.match(first.stderr, /java-testing/);
   assert.equal(run().status, 0);
-  const broken = spawnSync(process.execPath, [GATE], { input: 'not json', encoding: 'utf8' });
+  const broken = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' });
   assert.equal(broken.status, 0);
 });

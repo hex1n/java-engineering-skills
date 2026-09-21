@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PreToolUse gate for Claude Code and Codex. When an edit touches a file that
+// Pre-edit skill check, a PreToolUse hook for Claude Code and Codex. When an edit touches a file that
 // one of this plugin's skills owns and that skill has not been loaded in the
 // session, the first such edit is blocked (hard rules) or annotated with a
 // reminder (soft rules). Each skill is prompted at most once per session or
@@ -239,7 +239,7 @@ function resolveToken(text, target) {
  * content of a write, so scanning it for write targets invents targets out of
  * prose — a Markdown citation line `> \`Foo.java:12\`` is not a redirection.
  * An interpreter's heredoc body is real code and stays in view for
- * `scriptTargets`. An unterminated region is left as code: the gate keeps its
+ * `scriptTargets`. An unterminated region is left as code: the check keeps its
  * previous reading rather than swallowing the rest of the command.
  */
 export function dataRegions(text) {
@@ -469,7 +469,7 @@ export function loadedInTranscript(file, wanted) {
 }
 
 function stateFile(key) {
-  const dir = process.env.PLUGIN_DATA || process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), `${PLUGIN}-skill-gate`);
+  const dir = process.env.PLUGIN_DATA || process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), `${PLUGIN}-pre-edit-skill-check`);
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, `${key.replace(/[^\w.-]/g, '_')}.json`);
 }
@@ -518,8 +518,8 @@ function transcripts(input) {
 function main() {
   let input;
   try { input = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { return 0; }
-  if (process.env.JES_SKILL_GATE_DUMP) {
-    fs.appendFileSync(process.env.JES_SKILL_GATE_DUMP, `${JSON.stringify({ env: { PLUGIN_ROOT: process.env.PLUGIN_ROOT, PLUGIN_DATA: process.env.PLUGIN_DATA, CLAUDE_PLUGIN_ROOT: process.env.CLAUDE_PLUGIN_ROOT }, input })}\n`);
+  if (process.env.JES_PRE_EDIT_SKILL_CHECK_DUMP) {
+    fs.appendFileSync(process.env.JES_PRE_EDIT_SKILL_CHECK_DUMP, `${JSON.stringify({ env: { PLUGIN_ROOT: process.env.PLUGIN_ROOT, PLUGIN_DATA: process.env.PLUGIN_DATA, CLAUDE_PLUGIN_ROOT: process.env.CLAUDE_PLUGIN_ROOT }, input })}\n`);
   }
   const key = [input.session_id || 'unknown', input.agent_id].filter(Boolean).join('-');
   const file = stateFile(key);
@@ -544,8 +544,8 @@ function main() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { process.exitCode = main(); } catch (error) {
-    // A gate failure must never block editing.
-    process.stderr.write(`${PLUGIN} skill gate skipped: ${error.message}\n`);
+    // A failure of the check must never block editing.
+    process.stderr.write(`${PLUGIN} pre-edit skill check skipped: ${error.message}\n`);
     process.exitCode = 0;
   }
 }

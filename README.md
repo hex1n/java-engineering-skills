@@ -66,7 +66,7 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 
 按 `description` 自动选用只发生在任务开始时。修 bug、落地方案这类任务里，
 写测试和改 SQL 只是中间一步，代理通常不会为此再去加载 skill。插件因此带了
-一个 `PreToolUse` hook（`hooks/skill-gate.mjs`，Claude Code 与 Codex CLI/Desktop
+一个 `PreToolUse` hook（`hooks/pre-edit-skill-check.mjs`，Claude Code 与 Codex CLI/Desktop
 共用），在编辑文件前检查对应 skill 是否已在本会话加载：
 
 | 改动 | skill | 处理 |
@@ -156,7 +156,7 @@ CONTRIBUTING.md                       规则准入与验证流程
 VALIDATION.md                         各版本执行过的验证与缺口
 scripts/check.mjs                       离线结构与引用检查
 scripts/check-examples.mjs              编译与契约示例验证
-scripts/skill-gate-stats.mjs            本机会话中 skill 是否先于相关编辑加载
+scripts/pre-edit-skill-check-stats.mjs  本机会话中 skill 是否先于相关编辑加载
 tests/*.test.mjs                       检查脚本的回归测试
 tests/examples/                        Java 8/11/17/21 验证样例
 ```
@@ -176,7 +176,7 @@ claude plugin validate ./.claude-plugin/marketplace.json
 （`--verbose` 列出漏加载的会话）：
 
 ```sh
-node scripts/skill-gate-stats.mjs --since 2026-09-01 --verbose
+node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 ```
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例

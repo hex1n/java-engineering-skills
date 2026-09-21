@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Measures whether each plugin skill was loaded before the first edit that the
-// skill gate attributes to it, across local Claude Code and Codex transcripts.
-// Usage: node scripts/skill-gate-stats.mjs [--since YYYY-MM-DD] [--verbose]
+// pre-edit skill check attributes to it, across local Claude Code and Codex transcripts.
+// Usage: node scripts/pre-edit-skill-check-stats.mjs [--since YYYY-MM-DD] [--verbose]
 //        [--claude DIR] [--codex DIR]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { classify, extractEdits, skillLoads, toolCalls } from '../plugins/java-engineering-skills/hooks/skill-gate.mjs';
+import { classify, extractEdits, skillLoads, toolCalls } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -33,7 +33,7 @@ function* jsonl(dir) {
 function analyze(text) {
   const loaded = new Set();
   const outcome = new Map();
-  // Edits the gate blocked did not happen; the retry after loading counts.
+  // Edits the check blocked did not happen; the retry after loading counts.
   const blocked = new Set([...text.matchAll(/"tool_use_id":"([^"]+)"[^\n]*?java-engineering-skills: load /g)].map(match => match[1]));
   for (const line of text.split('\n')) {
     if (!line) continue;
@@ -74,7 +74,7 @@ function report() {
     }
   }
   const sorted = [...rows.values()].sort((a, b) => a.runtime.localeCompare(b.runtime) || b.sessions - a.sessions);
-  console.log('runtime  gate  skill                     transcripts  before-edit  late  never');
+  console.log('runtime  rule  skill                     transcripts  before-edit  late  never');
   for (const row of sorted) {
     console.log(`${row.runtime.padEnd(8)} ${(row.hard ? 'hard' : 'soft').padEnd(5)} ${row.skill.padEnd(25)} ${String(row.sessions).padStart(11)} ${String(row.before).padStart(12)} ${String(row.after).padStart(5)} ${String(row.never).padStart(6)}`);
   }

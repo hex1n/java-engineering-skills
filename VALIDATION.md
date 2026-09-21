@@ -5,7 +5,7 @@
 ### Why
 
 Session `96c8107b` (2026-09-21) wrote an analysis document with
-`cat > docs/….md <<'EOF'`. The gate blocked it for
+`cat > docs/….md <<'EOF'`. The hook blocked it for
 `use-modern-java` and `database-transactions`: Markdown citation lines such as
 ``> `OrderService.java:126-136` `` inside the body matched the shell
 redirection pattern, so six Java and XML names became write targets. The model
@@ -32,13 +32,19 @@ got one hit where the Write tool got four. On macOS the temp directory
 - `.github/workflows/ci.yml` runs `node scripts/check.mjs` and the unit tests
   on Ubuntu, macOS, and Windows with Node 22. The test pattern is quoted
   because PowerShell does not expand globs for native commands.
+- The hook is renamed `hooks/skill-gate.mjs` → `hooks/pre-edit-skill-check.mjs`:
+  it blocks or only reminds, so "gate" overstated the soft rules, and the
+  plugin directory and the `java-engineering-skills:` message prefix already
+  identify the plugin wherever the hook surfaces. The stats script, test file,
+  state directory, and dump variable (`JES_PRE_EDIT_SKILL_CHECK_DUMP`) follow.
+  The old names above are left as they were recorded.
 
 ### Executed validation for 0.8.2
 
 - `node --test "tests/*.test.mjs"` passed (26 tests) under Git Bash and
   PowerShell on Windows; `node scripts/check.mjs` passed. The macOS and Linux
   temp roots are unit-tested through `tempRoots`; the CI matrix has not run yet.
-- The new heredoc and here-string tests failed against the 0.8.1 gate and pass
+- The new heredoc and here-string tests failed against the 0.8.1 hook and pass
   now. Targeted faults, each run against the final tests: interpreter
   detection disabled, body not removed, target dropped, script-target rule
   removed, pipe consumer ignored, here-strings ignored, nesting filter removed,
@@ -55,7 +61,7 @@ got one hit where the Write tool got four. On macOS the temp directory
   same comparison showed 38 lost calls that wrote a `.py` or `.mjs` script
   through `cat` and ran it next, which is why a script target keeps a body as
   code. The replay also exposed a crash on a here-string piped straight into
-  `Set-Content`; `main()` would have swallowed it and skipped the gate for that
+  `Set-Content`; `main()` would have swallowed it and skipped the check for that
   call.
 
 ### Remaining gaps
