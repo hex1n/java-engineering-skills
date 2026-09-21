@@ -43,7 +43,8 @@ got one hit where the Write tool got four. On macOS the temp directory
 
 - `node --test "tests/*.test.mjs"` passed (26 tests) under Git Bash and
   PowerShell on Windows; `node scripts/check.mjs` passed. The macOS and Linux
-  temp roots are unit-tested through `tempRoots`; the CI matrix has not run yet.
+  temp roots are unit-tested through `tempRoots`. The CI workflow passed on
+  Ubuntu, macOS, and Windows for the push of `5b5142f`.
 - The new heredoc and here-string tests failed against the 0.8.1 hook and pass
   now. Targeted faults, each run against the final tests: interpreter
   detection disabled, body not removed, target dropped, script-target rule
