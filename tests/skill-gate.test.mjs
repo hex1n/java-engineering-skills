@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, decide, extractEdits, loadedInTranscript, skillLoads } from '../plugins/java-engineering-skills/hooks/skill-gate.mjs';
+import { classify, decide, extractEdits, isScratch, loadedInTranscript, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/skill-gate.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GATE = path.join(ROOT, 'plugins/java-engineering-skills/hooks/skill-gate.mjs');
@@ -69,6 +69,67 @@ test('script writes gate their resolved targets, not file names in the written t
   assert.deepEqual(paths("node -e \"\nfor (const p of [\n 'src/main/java/a/N.java',\n 'docs/n.md']) {\n  fs.writeFileSync(p, s);\n}\n\""), ['src/main/java/a/N.java']);
   assert.deepEqual(paths("python - <<'EOF'\n(base/'src/main/java/a/O.java').unlink()\nEOF"), ['src/main/java/a/O.java']);
   assert.deepEqual(paths("AR=src/main/java/a/P.java && sed -i 's#a#b#' \"$AR\""), ['src/main/java/a/P.java']);
+});
+
+test('a data heredoc is the written content, not a list of targets', () => {
+  const paths = command => extractEdits('Bash', { command }).map(edit => edit.path);
+  // Evidence citations in a Markdown body are prose; `>` there is not a redirection.
+  const doc = '# notes\n> `OrderService.java:126-136`\n> `OrderMapper.xml:233`\n';
+  assert.deepEqual(paths("cat > docs/notes.md <<'DOC'\n" + doc + 'DOC\n'), []);
+  assert.deepEqual(paths("tee docs/notes.md <<'DOC'\n" + doc + 'DOC\n'), []);
+  // The body is the text written, so the content rules read it.
+  const write = "cat > src/main/java/a/Svc.java <<'EOF'\n@Transactional\nclass Svc { RLock lock; }\nEOF\n";
+  assert.deepEqual(extractEdits('Bash', { command: write }),
+    [{ path: 'src/main/java/a/Svc.java', content: '@Transactional\nclass Svc { RLock lock; }\n' }]);
+  assert.deepEqual(classify(extractEdits('Bash', { command: write })).map(hit => hit.skill).sort(),
+    ['database-transactions', 'redis-engineering', 'spring-boot-engineering', 'use-modern-java']);
+  // A CRLF command closes the body on the delimiter line all the same; the
+  // path alone would also come from the redirection, so the content is checked.
+  assert.deepEqual(extractEdits('Bash', { command: "cat > src/main/java/a/Crlf.java <<'EOF'\r\nclass Crlf {}\r\nEOF\r\n" }),
+    [{ path: 'src/main/java/a/Crlf.java', content: 'class Crlf {}\r\n' }]);
+  // The consumer decides: `cat` receives data even when an earlier word says python.
+  assert.deepEqual(paths('echo "python" && cat > src/main/java/a/Q.java <<\'EOF\'\nclass Q {}\nEOF'), ['src/main/java/a/Q.java']);
+  // An unterminated body keeps the previous reading instead of swallowing the command.
+  assert.ok(paths("cat > docs/notes.md <<'DOC'\n" + doc).length > 0);
+  // A body written out as a script runs next, so the script's own writes count.
+  assert.deepEqual(paths("cat > /tmp/fix.py <<'EOF'\nopen('src/main/java/a/F.java','w').write(s)\nEOF\npython /tmp/fix.py"),
+    ['src/main/java/a/F.java']);
+  // The consumer and the target can both follow the marker on its line.
+  assert.deepEqual(paths("cat <<'EOF' | python -\nopen('src/main/java/a/G.java','w').write(s)\nEOF"), ['src/main/java/a/G.java']);
+  assert.deepEqual(extractEdits('Bash', { command: "cat <<'EOF' > src/main/java/a/Late.java\nclass Late {}\nEOF" }),
+    [{ path: 'src/main/java/a/Late.java', content: 'class Late {}\n' }]);
+  // A here-string inside a data body (a Markdown page showing a PowerShell
+  // snippet) is part of that body; the write after it still counts.
+  assert.deepEqual(paths("cat > docs/ps-example.md <<'EOF'\n$t = @'\nx\n'@\nEOF\nsed -i 's/a/b/' src/main/java/a/After.java"),
+    ['src/main/java/a/After.java']);
+});
+
+test('a PowerShell here-string is the written content, not a list of targets', () => {
+  const paths = command => extractEdits('PowerShell', { command }).map(edit => edit.path);
+  const doc = '# notes\n> `OrderService.java:126-136`\n';
+  assert.deepEqual(paths("$t = @'\n" + doc + "'@\nSet-Content -Path docs/notes.md -Value $t"), []);
+  assert.deepEqual(extractEdits('PowerShell', { command: "$t = @'\n@Transactional\nclass Svc {}\n'@\nSet-Content -Path src/main/java/a/Svc.java -Value $t" }),
+    [{ path: 'src/main/java/a/Svc.java', content: '@Transactional\nclass Svc {}\n' }]);
+  // Piped straight into the writer, with no variable in between.
+  assert.deepEqual(extractEdits('PowerShell', { command: "@'\nclass Pipe {}\n'@ | Set-Content -Path src/main/java/a/Pipe.java" }),
+    [{ path: 'src/main/java/a/Pipe.java', content: 'class Pipe {}\n' }]);
+  assert.deepEqual(paths("@'\n" + doc + "'@ | Out-File docs/notes.md"), []);
+  // Written out as a script, the body is code again.
+  assert.deepEqual(paths("$r = @'\nfs.writeFileSync('src/main/java/a/H.java', s)\n'@\nSet-Content -NoNewline -Encoding utf8 \"$d\\run.mjs\" $r"),
+    ['src/main/java/a/H.java']);
+});
+
+test('temp roots are recognised on Windows, Linux, and macOS hosts', () => {
+  assert.deepEqual(tempRoots('C:\\Users\\me\\AppData\\Local\\Temp'), ['c:/users/me/appdata/local/temp/']);
+  assert.deepEqual(tempRoots('/tmp'), ['/tmp/']);
+  // macOS reports /var/folders/…; the same directory also resolves under /private.
+  const mac = tempRoots('/var/folders/qd/9x_1/T');
+  assert.deepEqual(mac, ['/var/folders/qd/9x_1/t/', '/private/var/folders/qd/9x_1/t/']);
+  assert.ok(isScratch('/var/folders/qd/9x_1/T/mktemp-X/Probe.java', mac));
+  assert.ok(isScratch('/private/var/folders/qd/9x_1/T/work/Probe.java', mac));
+  assert.ok(!isScratch('app/src/main/java/a/Real.java', mac));
+  // The host's own temp directory is exempt on whichever platform the suite runs.
+  assert.deepEqual(extractEdits('Write', { file_path: path.join(os.tmpdir(), 'probe', 'Probe.java'), content: '' }), []);
 });
 
 test('Codex apply_patch text, raw or inside an exec script, is parsed', () => {

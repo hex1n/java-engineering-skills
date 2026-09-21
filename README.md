@@ -77,7 +77,10 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 | 本次写入的内容（不含文件原有 import）涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
 
 每个 skill 在每个会话（子代理单独计）最多拦一次或提醒一次；已加载的不再
-打扰。临时目录、scratchpad 和 `.scratch` 下的文件不检查。脚本出错时放行，
+打扰。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
+scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-string
+的正文按写入内容处理：正文里提到的文件名不算写入目标，写入 `*.java` 时正文
+参与内容规则判断。脚本出错时放行，
 不会阻止编辑。`jvm-performance` 与 `java-design` 的需求通常在提问时出现，
 仍由 `description` 选用。
 

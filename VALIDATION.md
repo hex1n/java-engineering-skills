@@ -1,5 +1,71 @@
 # Validation record
 
+## Version 0.8.2 — heredoc and here-string bodies are content; host temp roots
+
+### Why
+
+Session `96c8107b` (2026-09-21) wrote an analysis document with
+`cat > docs/….md <<'EOF'`. The gate blocked it for
+`use-modern-java` and `database-transactions`: Markdown citation lines such as
+``> `OrderService.java:126-136` `` inside the body matched the shell
+redirection pattern, so six Java and XML names became write targets. The model
+loaded both skills, retried, and fell back to the Write tool. A PowerShell
+here-string body had the same defect. The same root lost content: a heredoc
+that wrote a Java file reached the content rules with empty text, so the file
+got one hit where the Write tool got four. On macOS the temp directory
+(`/var/folders/…/T`) matched no scratch name and was gated.
+
+### Changes
+
+- Heredoc and PowerShell here-string bodies are data regions. A body's target
+  comes from its opening line (a redirection or pipe may follow the marker) or,
+  for a here-string, from the `Set-Content`/`Out-File` that writes its variable
+  or receives it through a pipe. The body is that write's content and is not
+  scanned for targets.
+- A body stays code when an interpreter consumes it (`python - <<'EOF'`,
+  `cat <<'EOF' | python -`) or when it is written to a script file
+  (`.py`, `.mjs`, `.sh`, `.ps1`, …), since that script runs next.
+- An unterminated body, and a region inside another data body, keep the
+  previous reading instead of removing overlapping spans.
+- Scratch detection adds this host's `os.tmpdir()`, including the macOS
+  `/private` form, to the name test.
+- `.github/workflows/ci.yml` runs `node scripts/check.mjs` and the unit tests
+  on Ubuntu, macOS, and Windows with Node 22. The test pattern is quoted
+  because PowerShell does not expand globs for native commands.
+
+### Executed validation for 0.8.2
+
+- `node --test "tests/*.test.mjs"` passed (26 tests) under Git Bash and
+  PowerShell on Windows; `node scripts/check.mjs` passed. The macOS and Linux
+  temp roots are unit-tested through `tempRoots`; the CI matrix has not run yet.
+- The new heredoc and here-string tests failed against the 0.8.1 gate and pass
+  now. Targeted faults, each run against the final tests: interpreter
+  detection disabled, body not removed, target dropped, script-target rule
+  removed, pipe consumer ignored, here-strings ignored, nesting filter removed,
+  and the `/private` root dropped were all detected. Dropping `\r?` from the
+  delimiter pattern is equivalent: a multiline `$` already stops before a CR.
+- Old and new extraction were compared over all 2,345 local Claude Code and
+  Codex transcripts (49,947 shell or exec calls that name a gated file). No
+  call raised. No call gained a target; 86 gained the written content. Seven
+  calls lost targets, and each was read: three wrote a Markdown or text file
+  that cited Java or properties files (including the `96c8107b` command), and
+  four were Codex `apply_patch` text held in a `$patch` here-string, where the
+  lost names sat inside patched test fixtures and the patch targets remained.
+- A first version classified bodies by their immediate consumer only. The
+  same comparison showed 38 lost calls that wrote a `.py` or `.mjs` script
+  through `cat` and ran it next, which is why a script target keeps a body as
+  code. The replay also exposed a crash on a here-string piped straight into
+  `Set-Content`; `main()` would have swallowed it and skipped the gate for that
+  call.
+
+### Remaining gaps
+
+- Bodies whose commands arrive as escaped JavaScript strings (Codex `exec`
+  input) are not split into regions; they keep the 0.8.1 reading.
+- Bash here-strings (`<<<`) and data passed as quoted arguments are still
+  scanned as code.
+- `src/test` path matching is case-sensitive.
+
 ## Version 0.8.1 — gate every Java edit, fewer false targets
 
 ### Why

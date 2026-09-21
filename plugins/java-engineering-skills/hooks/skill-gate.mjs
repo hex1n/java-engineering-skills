@@ -36,11 +36,34 @@ const CONTENT_RULES = [
 const SKILL_NAMES = [...new Set([...PATH_RULES, ...CONTENT_RULES].map(rule => rule.skill))];
 const posix = file => file.replace(/\\/g, '/');
 
-// Scratch and temp files are investigation artifacts, not project code.
+// Scratch and temp files are investigation artifacts, not project code. The
+// name test also covers transcripts recorded on another host; the tmpdir test
+// adds this host's real temp root, which on macOS is `/var/folders/<..>/T`
+// and carries no recognisable name.
 const SCRATCH = /\/(Temp|tmp|scratchpad|\.scratch)\//i;
+
+/** Prefixes that mean "inside this host's temp directory", as `/`-terminated lower case. */
+export function tempRoots(tmpdir) {
+  const root = posix(tmpdir).replace(/\/+$/, '').toLowerCase();
+  const roots = [root];
+  // macOS reports `/var/folders/…`; the same directory resolves to `/private/var/…`.
+  if (root.startsWith('/var/')) roots.push(`/private${root}`);
+  if (root.startsWith('/private/var/')) roots.push(root.slice('/private'.length));
+  return roots.map(value => `${value}/`);
+}
+
+const TEMP_ROOTS = tempRoots(os.tmpdir());
+
+export const isScratch = (file, roots = TEMP_ROOTS) => SCRATCH.test(posix(file))
+  || roots.some(root => `${posix(file).toLowerCase()}/`.startsWith(root));
 const FILE_TOKEN = /(?<![\w$.:\\/-])[\w.:\\/-]+\.(java|sql|xml|ya?ml|properties)\b/gi;
 // Shell forms that write the files they name. Reads are not gated.
 const IN_PLACE = /\bsed\s+(-\w*i|--in-place)|\bperl\s+-\w*i/;
+// A heredoc fed to one of these runs its body as code; anything else (`cat`,
+// `tee`, a bare redirection) receives the body as the data it writes.
+const INTERPRETER = /^(?:[\w.\\/-]*[\\/])?(python[\d.]*|node|deno|bun|bash|sh|zsh|ksh|dash|pwsh|powershell|perl|ruby|php|osascript|psql|mysql|sqlite3)(?:\.exe)?$/i;
+// A data body written to one of these is a script about to run, not a document.
+const SCRIPT_FILE = /\.(?:py|pyw|mjs|cjs|js|ts|sh|bash|zsh|ps1|psm1|rb|pl|php|groovy|lua)\b/i;
 // Script calls whose argument, or whose receiver, is the file written. Copy
 // and move calls write their second argument.
 const WRITE_CALL = /\b(open|(?:write|append|unlink|rm)FileSync|(?:write|append|unlink|rm)Sync|os\.(?:remove|unlink)|(?:Write|Append)All(?:Text|Lines|Bytes))\s*\(/g;
@@ -202,14 +225,115 @@ function scriptTargets(raw) {
   return resolved ? targets : fileTokens(text);
 }
 
+// A shell variable target (`> $f`, `Set-Content $H`) takes its assigned value.
+function resolveToken(text, target) {
+  const variable = /^\$\{?([A-Za-z_]\w*)\}?$/.exec(target);
+  if (!variable) return fileTokens(target);
+  const assigned = new RegExp(`(?:^|[\\s;(])\\$?${variable[1]}\\s*=\\s*["']?([^\\s"';]+)`, 'g');
+  return [...text.matchAll(assigned)].flatMap(match => fileTokens(match[1]));
+}
+
+/**
+ * Regions of a command that carry data rather than code: a heredoc body whose
+ * consumer is not an interpreter, and a PowerShell here-string. The body is the
+ * content of a write, so scanning it for write targets invents targets out of
+ * prose — a Markdown citation line `> \`Foo.java:12\`` is not a redirection.
+ * An interpreter's heredoc body is real code and stays in view for
+ * `scriptTargets`. An unterminated region is left as code: the gate keeps its
+ * previous reading rather than swallowing the rest of the command.
+ */
+export function dataRegions(text) {
+  const regions = [];
+  const heredoc = /<<-?[ \t]*(?:(['"])([A-Za-z_]\w*)\1|([A-Za-z_]\w*))/g;
+  for (let match; (match = heredoc.exec(text));) {
+    const word = match[2] ?? match[3];
+    const newline = text.indexOf('\n', match.index + match[0].length);
+    if (newline < 0) continue;
+    const start = newline + 1;
+    // The delimiter owns its whole line. A multiline `$` already stops before a
+    // CR; `\r?` takes that CR into the region so none is left in the code.
+    const close = new RegExp(`^[ \\t]*${word}[ \\t]*\\r?$`, 'm').exec(text.slice(start));
+    if (!close) continue;
+    // The consumer is the command the heredoc feeds: the segment it opens in,
+    // or a pipe after the marker (`cat <<'EOF' | python -`). A redirection can
+    // also follow the marker (`cat <<'EOF' > out.java`), so the whole opening
+    // line is the scope that names the target.
+    const opening = segments(text.slice(0, match.index)).pop() || '';
+    const rest = text.slice(match.index + match[0].length, newline);
+    regions.push({
+      start,
+      end: start + close.index + close[0].length,
+      body: text.slice(start, start + close.index),
+      code: [opening, ...segments(rest)].some(segment => INTERPRETER.test(segment.trim().split(/\s+/)[0] || '')),
+      head: `${opening} ${rest}`,
+    });
+    heredoc.lastIndex = regions[regions.length - 1].end;
+  }
+  const hereString = /@(['"])[ \t]*\r?\n/g;
+  for (let match; (match = hereString.exec(text));) {
+    const start = match.index + match[0].length;
+    const close = new RegExp(`^${match[1]}@`, 'm').exec(text.slice(start));
+    if (!close) continue;
+    regions.push({
+      start,
+      end: start + close.index + close[0].length,
+      body: text.slice(start, start + close.index),
+      code: false,
+      variable: /(\$\w+)\s*=\s*$/.exec(text.slice(0, match.index))?.[1],
+    });
+    hereString.lastIndex = regions[regions.length - 1].end;
+  }
+  // A body written out as a script (`cat > /tmp/fix.py <<'EOF'`, then
+  // `python /tmp/fix.py`) runs next, so its own writes stay in view.
+  for (const region of regions) {
+    if (!region.code && writeScopes(text, region).some(scope => SCRIPT_FILE.test(scope))) region.code = true;
+  }
+  // A region inside a data body is part of that body (a heredoc writing a .ps1
+  // that holds a here-string); keeping both would remove overlapping spans.
+  // Inside a code body it is the script's own data and stays.
+  const kept = [];
+  for (const region of regions.sort((a, b) => a.start - b.start)) {
+    if (!kept.some(outer => !outer.code && region.start < outer.end)) kept.push(region);
+  }
+  return kept;
+}
+
+/**
+ * The command text that says where a data region goes. A heredoc names its
+ * target on its opening line. A here-string is either assigned to a variable
+ * that a later `Set-Content`/`Out-File` writes out, or piped straight into
+ * one: `@'…'@ | Set-Content x`.
+ */
+function writeScopes(text, region) {
+  if (region.head !== undefined) return [region.head];
+  const after = segments(text.slice(region.end));
+  return region.variable ? after.filter(segment => segment.includes(region.variable)) : after.slice(0, 1);
+}
+
+/** The file a data region is written to, or null when the command only pipes it. */
+function dataTarget(text, region) {
+  for (const scope of writeScopes(text, region)) {
+    for (const pattern of WRITE_TARGET) {
+      for (const match of scope.matchAll(pattern)) {
+        const [file] = resolveToken(text, match[1]);
+        if (file) return file;
+      }
+    }
+  }
+  return null;
+}
+
+/** The command with its data regions removed, so only shell code is scanned. */
+function codeOnly(text, regions) {
+  let code = text;
+  for (const region of [...regions].filter(region => !region.code).reverse()) {
+    code = code.slice(0, region.start) + code.slice(region.end);
+  }
+  return code;
+}
+
 function shellTargets(text) {
-  // A shell variable target (`> $f`, `Set-Content $H`) takes its assigned value.
-  const tokens = target => {
-    const variable = /^\$\{?([A-Za-z_]\w*)\}?$/.exec(target);
-    if (!variable) return fileTokens(target);
-    const assigned = new RegExp(`(?:^|[\\s;(])\\$?${variable[1]}\\s*=\\s*["']?([^\\s"';]+)`, 'g');
-    return [...text.matchAll(assigned)].flatMap(match => fileTokens(match[1]));
-  };
+  const tokens = target => resolveToken(text, target);
   const targets = [...(scriptTargets(text) || [])];
   for (const segment of segments(text)) {
     if (IN_PLACE.test(segment)) {
@@ -262,18 +386,27 @@ export function extractEdits(toolName, toolInput) {
   if (file && /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(toolName || '')) {
     const content = [input.new_string, input.content, input.new_source, ...(input.edits || []).map(edit => edit.new_string)]
       .filter(text => typeof text === 'string').join('\n');
-    return SCRATCH.test(posix(file)) ? [] : [{ path: posix(file), content }];
+    return isScratch(file) ? [] : [{ path: posix(file), content }];
   }
   if (/^(Read|Glob|Grep|Skill|LS)$/.test(toolName || '')) return [];
   const edits = [];
+  // First content wins: a heredoc body is the text written, an unattributed
+  // token from the surrounding command says nothing about the content.
+  const add = (file, content = '') => {
+    const previous = edits.find(edit => edit.path === file);
+    if (!previous) edits.push({ path: file, content });
+    else if (content && !previous.content) previous.content = content;
+  };
   for (const text of strings(toolInput)) {
-    edits.push(...patchEdits(text));
-    for (const token of shellTargets(text)) {
-      const file = posix(token.replace(/\\\\/g, '\\'));
-      if (!edits.some(edit => edit.path === file)) edits.push({ path: file, content: '' });
+    for (const patch of patchEdits(text)) add(patch.path, patch.content);
+    const regions = dataRegions(text);
+    for (const region of regions.filter(region => !region.code)) {
+      const target = dataTarget(text, region);
+      if (target) add(posix(target.replace(/\\\\/g, '\\')), region.body);
     }
+    for (const token of shellTargets(codeOnly(text, regions))) add(posix(token.replace(/\\\\/g, '\\')));
   }
-  return edits.filter(edit => !SCRATCH.test(edit.path));
+  return edits.filter(edit => !isScratch(edit.path));
 }
 
 /** Skills this tool call loads: a Skill invocation or a read of <skill>/SKILL.md. */

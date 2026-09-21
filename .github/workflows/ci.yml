@@ -1,0 +1,27 @@
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    # The skill gate runs on every contributor's machine, so path, temp-directory,
+    # and line-ending behaviour is verified on all three host platforms.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Structure checks
+        run: node scripts/check.mjs
+      # Quoted so Node expands the pattern itself: PowerShell does not glob for
+      # native commands, so an unquoted pattern reaches Node literally on Windows.
+      - name: Unit tests
+        run: node --test "tests/*.test.mjs"
