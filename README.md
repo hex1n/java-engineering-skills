@@ -71,16 +71,24 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 
 | 改动 | skill | 处理 |
 |---|---|---|
-| 所有 `*.java` | `use-modern-java` | 未加载时拦下第一次编辑，要求加载后重试 |
+| 所有 `*.java` | `use-modern-java` | 未成功加载时持续拦截，加载后重试 |
 | `src/test/**/*.java` | `java-testing` | 同上 |
 | MyBatis mapper XML，`src/`、`db/`、`sql/`、`migration(s)/`、`schema/` 下的 `*.sql` | `database-transactions` | 同上 |
 | 本次写入的内容（不含文件原有 import）涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
 
-每个 skill 在每个会话（子代理单独计）最多拦一次或提醒一次；已加载的不再
-打扰。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
+硬规则的重试不会消耗检查；只有软提醒在每个会话（子代理单独计）最多出现一次。
+加载状态依据同一代理的调用及成功回执：Claude Code 的 `Skill` 成功结果，或读取
+`SKILL.md` 后返回当前插件完整正文的结果。仅提及路径、尚未完成、失败、截断的
+读取均不算已加载；旧版未经验证的缓存会从回执重建。读取被截断时单独完整读取
+该文件再重试。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
 scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-string
 的正文按写入内容处理：正文里提到的文件名不算写入目标，写入 `*.java` 时正文
-参与内容规则判断。脚本出错时放行，
+参与内容规则判断。`apply_patch` 只从补丁头识别目标，正文不再作为另一段脚本扫描；
+相对路径先按工作目录解析，再排除 scratch。无法解析的动态脚本写入只提醒，
+不会把正文提及的所有 Java 文件猜成目标。这是有限的编辑检查，不是脚本沙箱。
+每次决定在插件数据目录写入会话级 `*.audit.jsonl`，仅含调用 ID、目标、原因和
+退出码，不记录命令或源码。该记录表示 hook 的决定，不能证明宿主确实执行了拦截。
+脚本出错时放行，
 不会阻止编辑。`jvm-performance` 与 `java-design` 的需求通常在提问时出现，
 仍由 `description` 选用。
 

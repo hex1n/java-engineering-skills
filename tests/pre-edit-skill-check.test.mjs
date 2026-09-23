@@ -11,6 +11,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
 const skills = edits => classify(edits).map(hit => `${hit.skill}:${hit.hard ? 'hard' : 'soft'}`).sort();
 const edit = (file, content = '') => ({ tool_name: 'Edit', cwd: '/repo', tool_input: { file_path: file, new_string: content } });
+const body = skill => fs.readFileSync(path.join(ROOT, 'plugins/java-engineering-skills/skills', skill, 'SKILL.md'), 'utf8');
+const call = (id, name, input) => ({ type: 'response_item', payload: { type: 'custom_tool_call', call_id: id, name, input } });
+const output = (id, value) => ({ type: 'response_item', payload: { type: 'custom_tool_call_output', call_id: id, output: value } });
+const command = skill => `Get-Content C:/plugins/skills/${skill}/SKILL.md`;
 
 test('path rules separate tests, production code, SQL, and scratch files', () => {
   assert.deepEqual(skills([{ path: '/repo/app/src/test/java/a/FooTest.java' }]), ['java-testing:hard', 'use-modern-java:hard']);
@@ -50,12 +54,11 @@ test('script writes gate their resolved targets, not file names in the written t
   assert.deepEqual(paths("python - <<'EOF'\nfrom pathlib import Path\nPath('src/main/java/a/Foo.java').write_text(s)\nEOF"), ['src/main/java/a/Foo.java']);
   assert.deepEqual(paths("python - <<'EOF'\nfiles=['src/main/java/a/A.java','README.md']\nfor f in files:\n    open(f,'w').write(s)\nEOF"), ['src/main/java/a/A.java']);
   assert.deepEqual(paths("node -e \"const target = 'src/main/java/a/B.java'; fs.writeFileSync(target, s)\""), ['src/main/java/a/B.java']);
-  // Targets from argv or an unassigned name fall back to every Java file named.
+  // Dynamic parameters remain unknown; a mentioned filename is not a proven write.
   const argv = "f=src/main/java/a/Proc.java; python - \"$f\" <<'EOF'\nimport sys\np=sys.argv[1]\nopen(p,'w',encoding='utf-8',newline='').write(s)\nEOF";
-  assert.deepEqual(paths(argv), ['src/main/java/a/Proc.java']);
-  assert.deepEqual(paths("python - <<'EOF'\ndef save(path):\n    open(path,'w').write(s)\nsave('src/main/java/a/C.java')\nEOF"), ['src/main/java/a/C.java']);
-  // A parameter shadowing a literal assignment still falls back.
-  assert.deepEqual(paths("python -c \"\ndef edit(p):\n    open(p,'wb').write(s)\nedit('src/main/java/a/D.java')\np='docs/x.md'\nopen(p,'w').write(s)\n\"").sort(), ['src/main/java/a/D.java']);
+  assert.deepEqual(paths(argv), []);
+  assert.deepEqual(paths("python - <<'EOF'\ndef save(path):\n    open(path,'w').write(s)\nsave('src/main/java/a/C.java')\nEOF"), []);
+  assert.deepEqual(paths("python -c \"\ndef edit(p):\n    open(p,'wb').write(s)\nedit('src/main/java/a/D.java')\np='docs/x.md'\nopen(p,'w').write(s)\n\"").sort(), []);
   const tuples = "python - <<'EOF'\np='docs/a.md'\nopen(p,'w').write(s)\nfor p,amt in [('src/test/java/a/ETest.java','x'),\n              ('src/test/java/a/FTest.java','y')]:\n    open(p,'w').write(s)\nEOF";
   assert.deepEqual(paths(tuples).sort(), ['src/test/java/a/ETest.java', 'src/test/java/a/FTest.java']);
   assert.deepEqual(paths("$T=\"src/test/java/a/GTest.java\"\npython -c \"\np=r'$T'\nio.open(p,'w').write(s)\n\""), ['src/test/java/a/GTest.java']);
@@ -64,7 +67,7 @@ test('script writes gate their resolved targets, not file names in the written t
   const mutants = "python - <<'EOF'\nCASES = {\n 'm1': ('src/main/java/a/J.java',\n   'a', 'b'),\n}\nfor name, (path, old, new) in CASES.items():\n    open(path, 'w').write(s)\nEOF";
   assert.deepEqual(paths(mutants), ['src/main/java/a/J.java']);
   assert.deepEqual(paths("python - <<'EOF'\nimport shutil\nshutil.copy2('/tmp/K.java', 'src/main/java/a/K.java')\nEOF"), ['src/main/java/a/K.java']);
-  assert.deepEqual(paths("function Edit-All([string]$path){ [IO.File]::WriteAllText($path, $t) }\nEdit-All 'src/test/java/a/LTest.java'"), ['src/test/java/a/LTest.java']);
+  assert.deepEqual(paths("function Edit-All([string]$path){ [IO.File]::WriteAllText($path, $t) }\nEdit-All 'src/test/java/a/LTest.java'"), []);
   assert.deepEqual(paths("$H=\"src/main/java/a/M.java\"\n(Get-Content $H -Raw).Replace('a','b') | Set-Content $H"), ['src/main/java/a/M.java']);
   assert.deepEqual(paths("node -e \"\nfor (const p of [\n 'src/main/java/a/N.java',\n 'docs/n.md']) {\n  fs.writeFileSync(p, s);\n}\n\""), ['src/main/java/a/N.java']);
   assert.deepEqual(paths("python - <<'EOF'\n(base/'src/main/java/a/O.java').unlink()\nEOF"), ['src/main/java/a/O.java']);
@@ -146,26 +149,36 @@ test('skill loads are recognised from the Skill tool and SKILL.md reads', () => 
   assert.deepEqual(skillLoads('Read', { file_path: 'C:\\x\\skills\\writing-for-agents\\SKILL.md' }), []);
 });
 
-test('transcript scan ignores skill listings and finds real loads in both runtimes', t => {
+test('transcript scan requires a completed successful read and the complete skill body', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 't.jsonl');
   const lines = [
     { type: 'user', message: { content: '- java-engineering-skills:java-testing: Design tests (file: r3/java-testing/SKILL.md)' } },
     { type: 'response_item', payload: { type: 'message', content: [{ text: '(file: r3/redis-engineering/SKILL.md)' }] } },
-    { type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', input: 'Get-Content C:/c/skills/database-transactions/SKILL.md' } },
+    call('db', 'exec', command('database-transactions')),
+    output('db', JSON.stringify({ exit_code: 0, output: body('database-transactions') })),
+    call('failed', 'exec', command('java-testing')),
+    output('failed', JSON.stringify({ exit_code: 1, output: body('java-testing') })),
+    call('empty', 'exec', command('java-testing')),
+    output('empty', JSON.stringify({ exit_code: 0, output: '' })),
+    call('short', 'exec', command('redis-engineering')),
+    output('short', JSON.stringify({ exit_code: 0, output: body('redis-engineering').slice(0, 300) })),
+    call('pending', 'exec', command('java-testing')),
   ];
   fs.writeFileSync(file, lines.map(line => JSON.stringify(line)).join('\n'));
   assert.deepEqual([...loadedInTranscript(file, ['java-testing', 'redis-engineering', 'database-transactions'])], ['database-transactions']);
 });
 
-test('hard rules block once, soft rules remind once, loaded skills pass', () => {
+test('hard rules keep blocking until loaded; only soft rules remind once', () => {
   const test = edit('/repo/src/test/java/a/FooTest.java');
   const first = decide(test, {});
   assert.match(first.block, /java-engineering-skills:java-testing/);
   assert.match(first.block, /java-engineering-skills:use-modern-java/);
   const retry = decide(test, first.state);
-  assert.equal(retry.block, null);
+  assert.equal(retry.block, first.block);
+  assert.equal(decide(test, retry.state).block, first.block);
+  assert.match(decide(test, { loaded: ['java-testing', 'use-modern-java'], prompted: ['java-testing', 'use-modern-java'] }).block, /use-modern-java/);
 
   const loaded = decide(test, {}, { findLoaded: () => new Set(['java-testing', 'use-modern-java']) });
   assert.equal(loaded.block, null);
@@ -173,24 +186,136 @@ test('hard rules block once, soft rules remind once, loaded skills pass', () => 
 
   const main = decide(edit('/repo/src/main/java/a/Foo.java'), {});
   assert.match(main.block, /use-modern-java/);
-  assert.equal(decide(edit('/repo/src/main/java/a/Bar.java'), main.state).block, null);
+  assert.match(decide(edit('/repo/src/main/java/a/Bar.java'), main.state).block, /use-modern-java/);
 
   const service = edit('/repo/src/main/java/a/Svc.java', '@Transactional\nvoid run() {}');
-  const reminded = decide(service, { loaded: ['use-modern-java'] });
+  const reminded = decide(service, { version: 2, loaded: ['use-modern-java'] });
   assert.equal(reminded.block, null);
   assert.match(reminded.context, /database-transactions/);
   assert.equal(decide(service, reminded.state).context, null);
 });
 
-test('the hook process exits 2 with a reason, then 0 on retry', t => {
+test('the hook process keeps refusing, then allows after successful reads and audits each decision', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-data-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const input = JSON.stringify({ session_id: 's1', cwd: '/repo', ...edit('/repo/src/test/java/a/FooTest.java') });
+  const transcript = path.join(dir, 'read.jsonl');
+  fs.writeFileSync(transcript, '');
+  const input = JSON.stringify({ session_id: 's1', tool_use_id: 'edit-1', transcript_path: transcript, ...edit('/repo/src/test/java/a/FooTest.java') });
   const run = () => spawnSync(process.execPath, [HOOK], { input, encoding: 'utf8', env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
   const first = run();
   assert.equal(first.status, 2);
   assert.match(first.stderr, /java-testing/);
+  assert.equal(run().status, 2);
+  const records = ['java-testing', 'use-modern-java'].flatMap(skill => [
+    call(skill, 'exec', `text(await tools.exec_command(${JSON.stringify({ cmd: command(skill) })}));`),
+    output(skill, JSON.stringify({ exit_code: 0, output: body(skill) })),
+  ]);
+  fs.writeFileSync(transcript, records.map(record => JSON.stringify(record)).join('\n'));
   assert.equal(run().status, 0);
+  const audits = fs.readFileSync(path.join(dir, 's1.audit.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(audits.map(item => item.exitCode), [2, 2, 0]);
+  assert.equal(audits[0].callId, 'edit-1');
+  assert.equal(audits[0].reason, 'skill-not-loaded');
+  assert.equal(audits[2].reason, 'allowed');
+  assert.ok(!JSON.stringify(audits).includes('# Use Modern Java'));
   const broken = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' });
   assert.equal(broken.status, 0);
+});
+
+test('scratch patch bodies never become independent script writes; following commands still count', () => {
+  const patch = "*** Begin Patch\n*** Update File: C:/repo/.scratch/probe/prepare_classpath.py\n@@\n+args = 'javac PerfMissingDiagnosis.java'\n+(root / 'javac.args').write_text(args, encoding='utf-8')\n*** End Patch";
+  assert.deepEqual(extractEdits('apply_patch', patch), []);
+  const wrapped = `text(await tools.apply_patch(${JSON.stringify(patch)}));`;
+  assert.deepEqual(extractEdits('exec', { input: wrapped }), []);
+  const combined = `${wrapped}\ntext(await tools.exec_command({cmd:"sed -i 's/a/b/' src/main/java/Real.java"}));`;
+  assert.deepEqual(extractEdits('exec', { input: combined }).map(item => item.path), ['src/main/java/Real.java']);
+  const result = decide({ tool_name: 'exec', tool_input: { input: wrapped }, cwd: 'C:/repo' }, {});
+  assert.equal(result.block, null);
+  assert.equal(result.unresolved, false);
+});
+
+test('scratch exclusion follows path resolution, including relative cwd and dot segments', () => {
+  assert.equal(decide({ ...edit('Probe.java'), cwd: 'C:/repo/.scratch/probe' }, {}).block, null);
+  assert.equal(decide(edit('.scratch/probe/Probe.java'), {}).block, null);
+  assert.match(decide(edit('.scratch/../src/main/java/Real.java'), {}).block, /use-modern-java/);
+  const input = `text(await tools.exec_command(${JSON.stringify({ cmd: "sed -i 's/a/b/' Probe.java", workdir: 'C:/repo/.scratch/probe' })}));`;
+  assert.equal(decide({ tool_name: 'exec', tool_input: input, cwd: 'C:/repo' }, {}).block, null);
+});
+
+test('unknown writes warn without inventing targets or exempting the next Java edit', () => {
+  const result = decide({ tool_name: 'Bash', tool_input: { command: "python -c \"p=sys.argv[1]; open(p,'w').write('Mention.java')\"" } }, {});
+  assert.equal(result.block, null);
+  assert.deepEqual(result.targets, []);
+  assert.match(result.context, /could not be resolved/);
+  assert.match(decide(edit('src/main/java/Real.java'), result.state).block, /use-modern-java/);
+});
+
+test('mentions, another plugin and prospective reads cannot mark a skill loaded', () => {
+  assert.deepEqual(skillLoads('Skill', { skill: 'another-plugin:use-modern-java' }), []);
+  assert.deepEqual(skillLoads('exec_command', { cmd: 'echo C:/skills/use-modern-java/SKILL.md' }), []);
+  assert.deepEqual(skillLoads('Write', { file_path: 'notes.md', content: command('use-modern-java') }), []);
+  const read = decide({ tool_name: 'exec_command', tool_input: { cmd: command('use-modern-java') } }, {});
+  assert.deepEqual(read.state.loaded, []);
+  assert.match(decide(edit('src/main/java/Real.java'), read.state).block, /use-modern-java/);
+});
+
+test('Claude reads and Skill invocations need matched non-error results', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-claude-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 't.jsonl');
+  const records = [
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'read', name: 'Read', input: { file_path: 'C:/skills/use-modern-java/SKILL.md' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'wrong-id', content: body('use-modern-java') }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'read', is_error: true, content: body('use-modern-java') }] } },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'skill', name: 'Skill', input: { skill: 'java-engineering-skills:java-testing' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'skill', content: 'Launching skill: java-engineering-skills:java-testing' }] } },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'read2', name: 'Read', input: { file_path: 'C:/skills/use-modern-java/SKILL.md' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'read2', content: body('use-modern-java').split('\n').map((line, i) => `${i + 1}→${line}`).join('\n') }] } },
+  ];
+  fs.writeFileSync(file, records.map(record => JSON.stringify(record)).join('\n'));
+  assert.deepEqual([...loadedInTranscript(file, ['java-testing', 'use-modern-java'])], ['java-testing', 'use-modern-java']);
+});
+
+test('Codex yielded reads count only after their matching continuation succeeds', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-yield-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 't.jsonl');
+  const records = [call('read', 'exec', command('use-modern-java')), output('read', 'Script running with cell ID 52')];
+  const scan = () => {
+    fs.writeFileSync(file, records.map(record => JSON.stringify(record)).join('\n'));
+    return [...loadedInTranscript(file, ['use-modern-java'])];
+  };
+  assert.deepEqual(scan(), []);
+  records.push(call('wait', 'functions.wait', JSON.stringify({ cell_id: '52' })), output('wait', JSON.stringify({ exit_code: 0, output: body('use-modern-java') })));
+  assert.deepEqual(scan(), ['use-modern-java']);
+});
+
+test('a soft reminder cannot exempt a later hard rule for the same skill', () => {
+  const reminder = decide(edit('src/main/java/Svc.java', '@Transactional'), { version: 2, loaded: ['use-modern-java'] });
+  assert.ok(reminder.state.prompted.includes('database-transactions'));
+  assert.match(decide(edit('db/migration/V2.sql'), reminder.state).block, /database-transactions/);
+});
+
+test('a yielded shell session needs a successful final exit, even if the body arrived early', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-session-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 't.jsonl');
+  const records = [
+    call('read', 'exec', command('use-modern-java')),
+    output('read', JSON.stringify({ session_id: 123, output: body('use-modern-java') })),
+  ];
+  const scan = extra => {
+    fs.writeFileSync(file, [...records, ...extra].map(record => JSON.stringify(record)).join('\n'));
+    return [...loadedInTranscript(file, ['use-modern-java'])];
+  };
+  assert.deepEqual(scan([]), []);
+  const poll = call('poll', 'exec', 'text(await tools.write_stdin({session_id:123,chars:""}));');
+  assert.deepEqual(scan([poll, output('poll', JSON.stringify({ exit_code: 1, output: '' }))]), []);
+  assert.deepEqual(scan([poll, output('poll', JSON.stringify({ exit_code: 0, output: '' }))]), ['use-modern-java']);
+});
+
+test('patch headers gate moves and deletions without treating added text as headers', () => {
+  assert.match(decide({ tool_name: 'apply_patch', tool_input: '*** Begin Patch\n*** Delete File: src/main/java/Old.java\n*** End Patch' }, {}).block, /use-modern-java/);
+  const patch = '*** Begin Patch\n*** Update File: notes.md\n*** Move to: notes2.md\n@@\n+*** Update File: Mention.java\n*** End Patch';
+  assert.deepEqual(extractEdits('apply_patch', patch).map(item => item.path), ['notes.md', 'notes2.md']);
 });

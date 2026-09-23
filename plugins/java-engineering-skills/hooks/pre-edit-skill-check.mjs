@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Pre-edit skill check, a PreToolUse hook for Claude Code and Codex. When an edit touches a file that
 // one of this plugin's skills owns and that skill has not been loaded in the
-// session, the first such edit is blocked (hard rules) or annotated with a
-// reminder (soft rules). Each skill is prompted at most once per session or
-// subagent. Node.js built-ins only.
+// session, edits stay blocked (hard rules) or receive a reminder once (soft
+// rules). Successful skill reads are tracked per session or subagent.
+// Node.js built-ins only.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 export const PLUGIN = 'java-engineering-skills';
 
-// Path rules decide from the file alone. Hard rules block the first edit.
+// Path rules decide from the file alone. Hard rules require a completed load.
 const PATH_RULES = [
   { skill: 'java-testing', hard: true, test: p => /\.java$/i.test(p) && /(^|\/)src\/test\//.test(p) },
   { skill: 'database-transactions', hard: true, test: (p, text) =>
@@ -160,10 +160,10 @@ function receiver(text, end) {
 /**
  * Files an inline script writes, or null when there is no script write. Each
  * write target is resolved through literal assignments; a target that comes
- * from argv, a directory walk, or an unassigned name falls back to every file
- * the script names, so strings in the written text do not count on their own.
+ * from argv, a directory walk, or an unassigned name is reported as unresolved;
+ * unrelated file-name literals are never promoted to confirmed write targets.
  */
-function scriptTargets(raw) {
+function scriptTargets(raw, onUnresolved) {
   // Codex exec input carries the script inside a JS string literal.
   const text = /\\[n"]/.test(raw) ? raw.replace(/\\n/g, '\n').replace(/\\(["'\\])/g, '$1') : raw;
   const writes = [];
@@ -222,7 +222,8 @@ function scriptTargets(raw) {
     }
   };
   writes.forEach(expr => resolve(expr, 2));
-  return resolved ? targets : fileTokens(text);
+  if (!resolved) onUnresolved();
+  return targets;
 }
 
 // A shell variable target (`> $f`, `Set-Content $H`) takes its assigned value.
@@ -332,9 +333,9 @@ function codeOnly(text, regions) {
   return code;
 }
 
-function shellTargets(text) {
+function shellTargets(text, onUnresolved) {
   const tokens = target => resolveToken(text, target);
-  const targets = [...(scriptTargets(text) || [])];
+  const targets = [...(scriptTargets(text, onUnresolved) || [])];
   for (const segment of segments(text)) {
     if (IN_PLACE.test(segment)) {
       targets.push(...fileTokens(segment));
@@ -365,11 +366,14 @@ function patchEdits(text) {
   const lines = text.split(/\r?\n|\\n/);
   let current = null;
   for (const line of lines) {
-    const header = /\*\*\* (?:Add|Update) File: (.+?)\s*"?\)?;?$/.exec(line);
+    const header = /^\*\*\* (?:Add|Update|Delete) File: (.+?)\s*"?\)?;?$/.exec(line);
     if (header) {
       current = { path: posix(header[1].replace(/\\\\/g, '\\')), content: '' };
       edits.push(current);
-    } else if (/^\*\*\* (End Patch|Delete File|Move to)/.test(line)) current = null;
+    } else if (line.startsWith('*** Move to: ')) {
+      current = { path: posix(line.slice('*** Move to: '.length).trim()), content: '' };
+      edits.push(current);
+    } else if (/^\*\*\* End Patch/.test(line)) current = null;
     else if (current && line.startsWith('+')) current.content += `${line.slice(1)}\n`;
   }
   return edits;
@@ -380,13 +384,20 @@ function patchEdits(text) {
  * Claude passes Edit/Write/MultiEdit/NotebookEdit input; everything else
  * (Codex apply_patch or exec, Bash, PowerShell) is scanned as text.
  */
-export function extractEdits(toolName, toolInput) {
-  const input = toolInput && typeof toolInput === 'object' ? toolInput : {};
+export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {} } = {}) {
+  const input = toolInput && typeof toolInput === 'object' ? toolInput : objectInput(toolInput);
+  cwd = input.workdir || input.cwd || cwd;
+  const resolvePath = file => {
+    const api = /^[A-Za-z]:[\\/]|^\\\\/.test(cwd || file) ? path.win32 : path;
+    return posix(cwd ? api.resolve(cwd, file) : api.normalize(file));
+  };
+  const keep = edits => edits.map(edit => ({ ...edit, path: resolvePath(edit.path) }))
+    .filter(edit => !isScratch(edit.path));
   const file = input.file_path || input.notebook_path;
   if (file && /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(toolName || '')) {
     const content = [input.new_string, input.content, input.new_source, ...(input.edits || []).map(edit => edit.new_string)]
       .filter(text => typeof text === 'string').join('\n');
-    return isScratch(file) ? [] : [{ path: posix(file), content }];
+    return keep([{ path: file, content }]);
   }
   if (/^(Read|Glob|Grep|Skill|LS)$/.test(toolName || '')) return [];
   const edits = [];
@@ -397,27 +408,71 @@ export function extractEdits(toolName, toolInput) {
     if (!previous) edits.push({ path: file, content });
     else if (content && !previous.content) previous.content = content;
   };
-  for (const text of strings(toolInput)) {
+  for (let text of strings(toolInput)) {
     for (const patch of patchEdits(text)) add(patch.path, patch.content);
+    // Patch bodies are data even when they contain executable source code.
+    text = text.replace(/\*\*\* Begin Patch[\s\S]*?\*\*\* End Patch/g, '');
+    if (/(^|[._])apply_patch$/.test(toolName || '')) continue;
+    for (const call of commandCalls(text).reverse()) {
+      for (const edit of extractEdits('exec_command', call.input, { cwd, onUnresolved })) add(edit.path, edit.content);
+      text = text.slice(0, call.start) + text.slice(call.end);
+    }
     const regions = dataRegions(text);
     for (const region of regions.filter(region => !region.code)) {
       const target = dataTarget(text, region);
       if (target) add(posix(target.replace(/\\\\/g, '\\')), region.body);
     }
-    for (const token of shellTargets(codeOnly(text, regions))) add(posix(token.replace(/\\\\/g, '\\')));
+    for (const token of shellTargets(codeOnly(text, regions), onUnresolved)) add(posix(token.replace(/\\\\/g, '\\')));
   }
-  return edits.filter(edit => !isScratch(edit.path));
+  return keep(edits);
 }
 
-/** Skills this tool call loads: a Skill invocation or a read of <skill>/SKILL.md. */
-export function skillLoads(toolName, toolInput) {
-  const found = new Set();
-  if (toolName === 'Skill' && typeof toolInput?.skill === 'string') {
-    const name = toolInput.skill.replace(/^\//, '').split(':').pop();
-    if (SKILL_NAMES.includes(name)) found.add(name);
+function objectInput(input) {
+  if (typeof input !== 'string') return input || {};
+  try { return JSON.parse(input); } catch { return {}; }
+}
+
+// Decode literal command arguments only; never execute tool-supplied JavaScript.
+function commandCalls(code) {
+  const calls = [];
+  for (const match of code.matchAll(/tools\.exec_command\s*\(/g)) {
+    const [args = ''] = callArgs(code, match.index + match[0].length, 1);
+    const input = {};
+    for (const property of args.matchAll(/(?:^|[,{])\s*["']?(cmd|workdir)["']?\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`)/g)) {
+      const [, key, literal] = property;
+      try {
+        if (literal[0] === '"') input[key] = JSON.parse(literal);
+        else if (!literal.includes('${')) input[key] = literal.slice(1, -1).replace(/\\n/g, '\n').replace(/\\(['\\])/g, '$1');
+      } catch { /* dynamic or malformed command: no read evidence */ }
+    }
+    if (input.cmd) calls.push({ start: match.index, end: match.index + match[0].length + args.length + 1, input });
   }
-  for (const text of strings(toolInput)) {
-    for (const match of text.matchAll(/(?:^|[\\/])([a-z-]+)[\\/]+SKILL\.md/g)) {
+  return calls;
+}
+
+function readCommands(toolName, toolInput) {
+  const input = objectInput(toolInput);
+  if (typeof (input.cmd ?? input.command) === 'string') return [input.cmd ?? input.command];
+  const code = typeof toolInput === 'string' ? toolInput : input.input ?? input.code ?? '';
+  if (typeof code !== 'string') return [];
+  const commands = commandCalls(code).map(call => call.input.cmd);
+  return commands.length || code.includes('tools.') ? commands : /^(exec|Bash|PowerShell|shell|shell_command|local_shell)$/.test(toolName) ? [code] : [];
+}
+
+/** Skills requested by explicit reads. A request alone never counts as loaded. */
+export function skillLoads(toolName, toolInput) {
+  toolName = (toolName || '').split('.').pop();
+  const input = objectInput(toolInput);
+  const found = new Set();
+  if (toolName === 'Skill' && typeof input.skill === 'string') {
+    const name = input.skill.replace(/^\//, '');
+    if (name.startsWith(`${PLUGIN}:`) && SKILL_NAMES.includes(name.split(':')[1])) found.add(name.split(':')[1]);
+  }
+  const reads = toolName === 'Read' ? [input.file_path || ''] : readCommands(toolName, toolInput)
+    .flatMap(command => segments(codeOnly(command, dataRegions(command))))
+    .filter(command => /^\s*(?:Get-Content|cat|type)\s+/i.test(command));
+  for (const text of reads) {
+    for (const match of text.matchAll(/(?:^|[\\/])([a-z-]+)[\\/]+SKILL\.md(?=[\s"';,]|$)/g)) {
       if (SKILL_NAMES.includes(match[1])) found.add(match[1]);
     }
   }
@@ -450,21 +505,82 @@ export function toolCalls(line) {
   }
   const payload = record?.payload;
   if (payload && /(^|_)call$/.test(payload.type || '')) {
-    calls.push({ toolName: payload.name, toolInput: payload.arguments ?? payload.input });
+    calls.push({ toolName: payload.name, toolInput: payload.arguments ?? payload.input, id: payload.call_id });
   }
   return calls;
+}
+
+const normalizeRead = text => text.replace(/\r\n?/g, '\n').replace(/^[ \t]*\d+[→\t]/gm, '').trim();
+const skillBodies = new Map();
+function containsSkill(text, skill) {
+  if (!skillBodies.has(skill)) {
+    skillBodies.set(skill, normalizeRead(fs.readFileSync(new URL(`../skills/${skill}/SKILL.md`, import.meta.url), 'utf8')));
+  }
+  return normalizeRead(text).includes(skillBodies.get(skill));
+}
+
+function results(line) {
+  let record;
+  try { record = JSON.parse(line); } catch { return []; }
+  if (record.type === 'user' && Array.isArray(record.message?.content)) {
+    return record.message.content.filter(item => item.type === 'tool_result')
+      .map(item => ({ id: item.tool_use_id, output: item.content, failed: item.is_error }));
+  }
+  const item = record.payload;
+  return /^(custom_tool_call_output|function_call_output)$/.test(item?.type || '')
+    ? [{ id: item.call_id, output: item.output, failed: item.is_error }] : [];
+}
+
+/** Pair reads with completed results; usable by the hook and offline statistics. */
+export function transcriptLoads() {
+  const pending = new Map();
+  const continuations = new Map();
+  return line => {
+    for (const call of toolCalls(line)) {
+      if (!call.id) continue;
+      const input = objectInput(call.toolInput);
+      const raw = strings(call.toolInput).join('\n');
+      const cell = input.cell_id ?? /["']?cell_id["']?\s*:\s*["']([^"']+)/.exec(raw)?.[1];
+      const session = input.session_id ?? /["']?session_id["']?\s*:\s*(\d+)/.exec(raw)?.[1];
+      const resumed = /wait$/.test(call.toolName) ? continuations.get(`cell:${cell}`)
+        : /write_stdin/.test(call.toolName + raw) ? continuations.get(`session:${session}`) : null;
+      const skills = skillLoads(call.toolName, call.toolInput);
+      if (resumed) {
+        continuations.delete(`cell:${cell}`);
+        continuations.delete(`session:${session}`);
+      }
+      if (resumed || skills.length) pending.set(call.id, resumed || {
+        skills, text: '', direct: /(^|\.)(Read|Skill)$/.test(call.toolName), invocation: /(^|\.)Skill$/.test(call.toolName),
+      });
+    }
+    const loaded = new Set();
+    for (const result of results(line)) {
+      const read = pending.get(result.id);
+      if (!read) continue;
+      pending.delete(result.id);
+      const output = strings(result.output).join('\n');
+      read.text += `\n${output}`;
+      const cell = /Script running with cell ID\s+(\S+)/.exec(output)?.[1];
+      const session = /"session_id"\s*:\s*(\d+)/.exec(output)?.[1];
+      const exitCodes = [...output.matchAll(/"exit_code"\s*:\s*(-?\d+)|(?:Process exited with code|Exit code:)\s*(-?\d+)/gi)]
+        .map(match => Number(match[1] ?? match[2]));
+      const failed = result.failed || exitCodes.some(code => code !== 0) || /"isError"\s*:\s*true/.test(output);
+      if (failed) continue;
+      if (cell) { continuations.set(`cell:${cell}`, read); continue; }
+      if (session && !exitCodes.length) { continuations.set(`session:${session}`, read); continue; }
+      if (!read.direct && !exitCodes.length) continue;
+      for (const skill of read.skills) if ((read.invocation && output.trim()) || containsSkill(read.text, skill)) loaded.add(skill);
+    }
+    return loaded;
+  };
 }
 
 export function loadedInTranscript(file, wanted) {
   const found = new Set();
   let text;
   try { text = fs.readFileSync(file, 'utf8'); } catch { return found; }
-  for (const line of text.split('\n')) {
-    if (!wanted.some(skill => line.includes(skill))) continue;
-    for (const { toolName, toolInput } of toolCalls(line)) {
-      for (const skill of skillLoads(toolName, toolInput)) found.add(skill);
-    }
-  }
+  const consume = transcriptLoads();
+  for (const line of text.split('\n')) for (const skill of consume(line)) if (wanted.includes(skill)) found.add(skill);
   return found;
 }
 
@@ -484,24 +600,29 @@ function message(hits, hard) {
 
 /** Decides one hook call. Returns {block, context, loaded, prompted} with state updates. */
 export function decide(input, state, { findLoaded = () => new Set() } = {}) {
-  const loaded = new Set(state.loaded || []);
+  // Version 1 marked attempts as loaded. Rebuild that unverified cache from receipts.
+  const loaded = new Set(state.version === 2 ? state.loaded || [] : []);
   const prompted = new Set(state.prompted || []);
-  for (const skill of skillLoads(input.tool_name, input.tool_input)) loaded.add(skill);
   const cwd = input.cwd || process.cwd();
-  const edits = extractEdits(input.tool_name, input.tool_input)
-    .map(edit => ({ ...edit, path: posix(path.resolve(cwd, edit.path)) }));
-  let hits = classify(edits).filter(hit => !loaded.has(hit.skill) && !prompted.has(hit.skill));
+  let unresolved = false;
+  const edits = extractEdits(input.tool_name, input.tool_input, { cwd, onUnresolved: () => { unresolved = true; } });
+  let hits = classify(edits).filter(hit => !loaded.has(hit.skill) && (hit.hard || !prompted.has(hit.skill)));
   if (hits.length) {
     for (const skill of findLoaded(hits.map(hit => hit.skill))) loaded.add(skill);
     hits = hits.filter(hit => !loaded.has(hit.skill));
   }
-  hits.forEach(hit => prompted.add(hit.skill));
   const hard = hits.filter(hit => hit.hard);
   const soft = hits.filter(hit => !hit.hard);
+  // If the runtime shows only the refusal, do not consume a soft reminder yet.
+  if (!hard.length) soft.forEach(hit => prompted.add(hit.skill));
+  const warning = unresolved ? `${PLUGIN}: a script write target could not be resolved. Use an explicit file path and load the applicable skill before editing project code.` : null;
   return {
     block: hard.length ? message(hard, true) : null,
-    context: soft.length ? message(soft, false) : null,
-    state: { loaded: [...loaded], prompted: [...prompted] },
+    context: [soft.length ? message(soft, false) : null, warning].filter(Boolean).join('\n') || null,
+    targets: edits.map(edit => edit.path),
+    missing: hard.map(hit => hit.skill),
+    unresolved,
+    state: { version: 2, loaded: [...loaded], prompted: [...prompted] },
   };
 }
 
@@ -532,6 +653,15 @@ function main() {
   };
   const result = decide(input, state, { findLoaded });
   fs.writeFileSync(file, JSON.stringify(result.state));
+  // No source, command text or transcript contents in the audit trail.
+  try {
+    fs.appendFileSync(file.replace(/\.json$/, '.audit.jsonl'), `${JSON.stringify({
+      time: new Date().toISOString(), callId: input.tool_use_id ?? input.tool_call_id ?? input.call_id ?? null,
+      tool: input.tool_name, targets: result.targets, missing: result.missing,
+      reason: result.block ? 'skill-not-loaded' : result.unresolved ? 'unresolved-write' : result.context ? 'reminder' : 'allowed',
+      exitCode: result.block ? 2 : 0,
+    })}\n`);
+  } catch (error) { process.stderr.write(`${PLUGIN}: audit unavailable: ${error.code || 'write failed'}\n`); }
   if (result.block) {
     process.stderr.write(`${result.block}\n`);
     return 2;

@@ -1,5 +1,52 @@
 # Validation record
 
+## Version 0.8.3 — persistent hard checks and successful skill-load receipts
+
+### Incident and changes
+
+The 2026-09-23 Codex session patched scratch Python/PowerShell files. A compiler
+argument naming `PerfMissingDiagnosis.java` was rescanned as a script target.
+The hook then exempted later production edits because `prompted` was treated
+like `loaded`. Replaying the actual tool call against this revision returns
+no target, no block and no unresolved-write warning.
+
+- Patch headers own their targets; patch bodies are excluded from script scans.
+  Resolve paths before excluding scratch, including an exec command's workdir.
+- Hard rules continue blocking until successful load evidence exists. Only soft
+  reminders use `prompted`; an earlier soft reminder never exempts a hard rule.
+- Pair transcript calls and results by ID. Failed, pending, empty or truncated
+  reads do not load a skill. Reads must return the current plugin's complete
+  SKILL.md body; successful Claude Skill invocations use the runtime's result.
+  Codex cell waits and shell-session polls retain the original read identity.
+  Version 1 state is rebuilt because it previously trusted attempted reads.
+- Unresolved script targets produce a warning, not invented filename targets.
+- Record compact per-session decision audits without source or command text.
+  Offline statistics also use completed loads instead of attempted reads.
+
+### Validation boundary
+
+On Windows, `node --test "tests/*.test.mjs"` passed all 35 tests (21 hook
+tests); `node scripts/check.mjs`, both Claude plugin/marketplace validators
+and `git diff --check` passed. Java examples were unchanged and not rerun.
+The normal `codex plugin add java-engineering-skills@java-engineering-skills`
+command installed local version 0.8.3; the cached hook's SHA-256 matches the
+source. No hook trust record was manually written and no Git commit was made.
+
+Tests cover the incident shape, repeated denials, old state, soft-to-hard rule
+transitions, successful and failed reads, unrelated result IDs, Claude numbered
+reads, asynchronous Codex completion, scratch cwd, and patch move/delete targets.
+The real local transcript recognizes both `java-testing` and `use-modern-java`
+from completed reads after the change.
+
+Process tests verify refusal exit code 2, a repeated refusal, and exit code 0
+after successful read receipts, together with audit contents. They do not prove
+that Codex Desktop presents a refusal or prevents the underlying edit. The
+original incident's first refusal receipt remains unverified. Runtime acceptance
+requires updating the plugin, trusting its changed hook and testing in a fresh
+session; installing the new cache alone does not establish host enforcement.
+Dynamic scripts and unsupported transcript formats remain outside hard-check
+coverage; parsing failures retain the existing fail-open policy.
+
 ## Version 0.8.2 — heredoc and here-string bodies are content; host temp roots
 
 ### Why

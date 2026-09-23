@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { classify, extractEdits, skillLoads, toolCalls } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { classify, extractEdits, transcriptLoads, toolCalls } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -33,17 +33,18 @@ function* jsonl(dir) {
 function analyze(text) {
   const loaded = new Set();
   const outcome = new Map();
+  const consume = transcriptLoads();
   // Edits the check blocked did not happen; the retry after loading counts.
-  const blocked = new Set([...text.matchAll(/"tool_use_id":"([^"]+)"[^\n]*?java-engineering-skills: load /g)].map(match => match[1]));
+  const blocked = new Set([...text.matchAll(/"(?:tool_use_id|call_id)"\s*:\s*"([^"]+)"[^\n]*?java-engineering-skills: (?:load |this edit was not applied)/g)].map(match => match[1]));
   for (const line of text.split('\n')) {
     if (!line) continue;
+    for (const skill of consume(line)) {
+      loaded.add(skill);
+      const entry = outcome.get(skill);
+      if (entry && !entry.before) entry.after = true;
+    }
     for (const { toolName, toolInput, id } of toolCalls(line)) {
       if (blocked.has(id)) continue;
-      for (const skill of skillLoads(toolName, toolInput)) {
-        loaded.add(skill);
-        const entry = outcome.get(skill);
-        if (entry && !entry.before) entry.after = true;
-      }
       const hits = classify(extractEdits(toolName, toolInput));
       for (const hit of hits) {
         const entry = outcome.get(hit.skill);
