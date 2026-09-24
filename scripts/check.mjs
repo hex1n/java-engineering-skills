@@ -116,7 +116,7 @@ function checkSkills() {
   return dirs;
 }
 function checkRules() {
-  const rows = [...read(path.join(SKILL, 'INDEX.md')).matchAll(/^\| (\d+) \| \[([^\]]+)\]\(([^)#]+)#([^)]+)\) \|/gm)].map(match => match.slice(1));
+  const rows = [...read(path.join(SKILL, 'SKILL.md')).matchAll(/^\| (\d+) \| \[([^\]]+)\]\(([^)#]+)#([^)]+)\) \|/gm)].map(match => match.slice(1));
   require(rows.length, 'Empty rule index');
   const ids = rows.map(row => row[1]);
   require(new Set(ids).size === ids.length, 'Duplicate rule ID');

@@ -8,7 +8,7 @@ usable; required reference links stay within its own directory.
 
 Each modern-Java rule needs a stable ID, first stable Java release, a concrete trigger,
 an illustrative example, the behavior-sensitive limits, and a primary source
-from OpenJDK or the Java SE API documentation. Add its pointer to `INDEX.md`.
+from OpenJDK or the Java SE API documentation. Add its row to the rule index in `SKILL.md`.
 Use the stable release even when a feature appeared earlier as a preview.
 
 Prefer a small rule that changes a coding decision over a general best-practice
