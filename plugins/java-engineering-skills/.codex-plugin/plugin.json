@@ -15,7 +15,7 @@
             {
               "type": "command",
               "command": "node \"$PLUGIN_ROOT/hooks/pre-edit-skill-check.mjs\"",
-              "commandWindows": "powershell -NoProfile -Command \"node (Join-Path $env:PLUGIN_ROOT 'hooks/pre-edit-skill-check.mjs')\"",
+              "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\pre-edit-skill-check.mjs\"",
               "timeout": 30,
               "statusMessage": "Checking Java engineering skill coverage"
             }

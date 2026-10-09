@@ -198,10 +198,20 @@ test('hard rules keep blocking until loaded; only soft rules remind once', () =>
 test('the hook process keeps refusing, then allows after successful reads and audits each decision', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-data-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const pluginRoot = path.join(dir, 'plugin 中文 path');
+  fs.cpSync(path.dirname(path.dirname(HOOK)), pluginRoot, { recursive: true });
+  const hook = path.join(pluginRoot, 'hooks/pre-edit-skill-check.mjs');
   const transcript = path.join(dir, 'read.jsonl');
   fs.writeFileSync(transcript, '');
   const input = JSON.stringify({ session_id: 's1', tool_use_id: 'edit-1', transcript_path: transcript, ...edit('/repo/src/test/java/a/FooTest.java') });
-  const run = () => spawnSync(process.execPath, [HOOK], { input, encoding: 'utf8', env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
+  const options = { input, encoding: 'utf8', env: { ...process.env,
+    PLUGIN_ROOT: pluginRoot, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } };
+  const windowsCommand = JSON.parse(fs.readFileSync(path.join(ROOT,
+    'plugins/java-engineering-skills/.codex-plugin/plugin.json'), 'utf8'))
+    .hooks.hooks.PreToolUse[0].hooks[0].commandWindows;
+  const run = () => process.platform === 'win32'
+    ? spawnSync(windowsCommand, { ...options, shell: true })
+    : spawnSync(process.execPath, [hook], options);
   const first = run();
   assert.equal(first.status, 2);
   assert.match(first.stderr, /java-testing/);
