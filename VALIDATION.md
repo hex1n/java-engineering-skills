@@ -1,5 +1,51 @@
 # Validation record
 
+## Windows hook direct Node launcher — 2026-10-09
+
+The Windows command now starts Node directly with the quoted
+`%PLUGIN_ROOT%\hooks\pre-edit-skill-check.mjs` path. Codex CLI 0.161.0's
+[default Windows hook runner](https://github.com/openai/codex/blob/rust-v0.161.0/codex-rs/hooks/src/engine/command_runner.rs#L359)
+uses `cmd.exe`; removing the PowerShell wrapper
+preserves Node's exit code without a second shell or explicit forwarding.
+The command assumes the default hook shell, not a custom PowerShell shell.
+
+The existing hook-process test copies the real plugin into a path containing
+spaces and Chinese characters, then uses the manifest's Windows command.
+The focused regression passed: refusal, repeated refusal and successful skill
+loads returned 2, 2 and 0, with matching decision audits.
+
+The handoff run passed all 35 tests, `node scripts/check.mjs`, both Claude
+plugin/marketplace manifest validators and `git diff --check` on Windows.
+The unchanged Claude hook command was also run through local Git Bash:
+refusal, repeated refusal and an input without edit targets returned 2, 2
+and 0. Claude's PowerShell fallback and a fresh model session were not tested.
+
+Both installed plugins were then refreshed from the local marketplace to
+0.8.3; all 59 files in each cache match the source byte-for-byte. Codex
+`hooks/list` loaded the direct Node command, and the app-server configuration
+API updated only this hook's trust hash. A subsequent list reported it enabled
+and trusted. Claude's update command requires restarting to apply the update.
+No fresh model session exercised a refused edit through the full agent loop.
+
+## Windows hook launcher correction — 2026-10-09
+
+The installed Codex hook logged a refusal with Node exit code 2, but its
+`powershell -Command` wrapper returned 1 and the source edit still executed.
+The initial correction added `exit $LASTEXITCODE` to both the source manifest
+and the installed 0.8.3 manifest. No skill rules or versions changed.
+
+The existing hook-process test now uses the manifest's Windows command on
+Windows. Before the fix it failed with actual exit code 1 versus expected 2;
+after the fix its refusal, repeated refusal, and completed-load sequence
+returned 2, 2, and 0. All 35 tests, the offline structure check, both Claude
+manifest validators, and `git diff --check` passed on Windows with Node 26.7.0.
+
+At that point, the source and installed manifest/hook bytes matched. Codex
+`hooks/list` read the fixed command; `config/value/write` updated only this
+hook's reviewed trust hash, and a subsequent list reported it enabled and
+trusted. No new model
+session was run to exercise a refused edit through the full agent loop.
+
 ## Version 0.8.3 — persistent hard checks and successful skill-load receipts
 
 ### Incident and changes
