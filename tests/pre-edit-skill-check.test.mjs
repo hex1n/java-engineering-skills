@@ -195,46 +195,59 @@ test('hard rules keep blocking until loaded; only soft rules remind once', () =>
   assert.equal(decide(service, reminded.state).context, null);
 });
 
-test('the hook process keeps refusing, then allows after successful reads and audits each decision', t => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-data-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const pluginRoot = path.join(dir, 'plugin 中文 path');
-  fs.cpSync(path.dirname(path.dirname(HOOK)), pluginRoot, { recursive: true });
-  const hook = path.join(pluginRoot, 'hooks/pre-edit-skill-check.mjs');
-  const transcript = path.join(dir, 'read.jsonl');
-  fs.writeFileSync(transcript, '');
-  const input = JSON.stringify({ session_id: 's1', tool_use_id: 'edit-1', transcript_path: transcript, ...edit('/repo/src/test/java/a/FooTest.java') });
-  const options = { input, encoding: 'utf8', env: { ...process.env,
-    PLUGIN_ROOT: pluginRoot, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } };
-  // Codex substitutes ${PLUGIN_ROOT} in the command text, then runs it through the hook shell.
-  const codexCommand = JSON.parse(fs.readFileSync(path.join(ROOT,
-    'plugins/java-engineering-skills/.codex-plugin/plugin.json'), 'utf8'))
-    .hooks.hooks.PreToolUse[0].hooks[0].command.replaceAll('${PLUGIN_ROOT}', pluginRoot);
-  const run = () => spawnSync(codexCommand, { ...options, shell: true });
-  // A refusal is the deny decision on stdout with exit 0; Codex runs the tool after an exit-2 refusal.
-  const decision = result => {
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null;
-  };
-  const first = decision(run());
-  assert.equal(first.permissionDecision, 'deny');
-  assert.match(first.permissionDecisionReason, /java-testing/);
-  assert.equal(decision(run()).permissionDecision, 'deny');
-  const records = ['java-testing', 'use-modern-java'].flatMap(skill => [
-    call(skill, 'exec', `text(await tools.exec_command(${JSON.stringify({ cmd: command(skill) })}));`),
-    output(skill, JSON.stringify({ exit_code: 0, output: body(skill) })),
-  ]);
-  fs.writeFileSync(transcript, records.map(record => JSON.stringify(record)).join('\n'));
-  assert.equal(decision(run()), null);
-  const audits = fs.readFileSync(path.join(dir, 's1.audit.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
-  assert.deepEqual(audits.map(item => item.decision), ['deny', 'deny', 'allow']);
-  assert.equal(audits[0].callId, 'edit-1');
-  assert.equal(audits[0].reason, 'skill-not-loaded');
-  assert.equal(audits[2].reason, 'allowed');
-  assert.ok(!JSON.stringify(audits).includes('# Use Modern Java'));
-  const broken = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' });
-  assert.equal(broken.status, 0);
-});
+for (const launch of ['shell', 'realpath', 'alias']) {
+  test(`the hook process via ${launch} keeps refusing, then allows after successful reads and audits each decision`, t => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-data-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const pluginRoot = path.join(dir, 'plugin 中文 path');
+    fs.cpSync(path.dirname(path.dirname(HOOK)), pluginRoot, { recursive: true, filter: () => true });
+    const hook = path.join(pluginRoot, 'hooks/pre-edit-skill-check.mjs');
+    // A filter avoids Node 22's native cp path bug for non-ASCII Windows destinations.
+    assert.ok(fs.statSync(hook).isFile(), `copied hook missing: ${hook}`);
+    assert.equal(fs.readFileSync(hook, 'utf8'), fs.readFileSync(HOOK, 'utf8'));
+    const alias = path.join(dir, 'plugin alias 中文');
+    if (launch === 'alias') fs.symlinkSync(pluginRoot, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const transcript = path.join(dir, 'read.jsonl');
+    fs.writeFileSync(transcript, '');
+    const input = JSON.stringify({ session_id: 's1', tool_use_id: 'edit-1', transcript_path: transcript, ...edit('/repo/src/test/java/a/FooTest.java') });
+    const options = { input, encoding: 'utf8', env: { ...process.env,
+      PLUGIN_ROOT: pluginRoot, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } };
+    // Codex substitutes ${PLUGIN_ROOT} in the command text, then runs it through the hook shell.
+    const codexCommand = JSON.parse(fs.readFileSync(path.join(ROOT,
+      'plugins/java-engineering-skills/.codex-plugin/plugin.json'), 'utf8'))
+      .hooks.hooks.PreToolUse[0].hooks[0].command.replaceAll('${PLUGIN_ROOT}', pluginRoot);
+    const run = () => launch === 'shell'
+      ? spawnSync(codexCommand, { ...options, shell: true })
+      : spawnSync(process.execPath, [launch === 'realpath' ? fs.realpathSync(hook)
+        : path.join(alias, 'hooks/pre-edit-skill-check.mjs')], options);
+    // A refusal is the deny decision on stdout with exit 0; Codex runs the tool after an exit-2 refusal.
+    const decision = (result, expectDeny = true) => {
+      const diagnostic = JSON.stringify({ launch, status: result.status, error: result.error?.message,
+        stdout: result.stdout, stderr: result.stderr, hook, realHook: fs.realpathSync(hook) });
+      assert.equal(result.status, 0, diagnostic);
+      if (expectDeny) assert.ok(result.stdout?.trim(), `expected deny JSON, got empty stdout: ${diagnostic}`);
+      return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null;
+    };
+    const first = decision(run());
+    assert.equal(first.permissionDecision, 'deny');
+    assert.match(first.permissionDecisionReason, /java-testing/);
+    assert.equal(decision(run()).permissionDecision, 'deny');
+    const records = ['java-testing', 'use-modern-java'].flatMap(skill => [
+      call(skill, 'exec', `text(await tools.exec_command(${JSON.stringify({ cmd: command(skill) })}));`),
+      output(skill, JSON.stringify({ exit_code: 0, output: body(skill) })),
+    ]);
+    fs.writeFileSync(transcript, records.map(record => JSON.stringify(record)).join('\n'));
+    assert.equal(decision(run(), false), null);
+    const audits = fs.readFileSync(path.join(dir, 's1.audit.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+    assert.deepEqual(audits.map(item => item.decision), ['deny', 'deny', 'allow']);
+    assert.equal(audits[0].callId, 'edit-1');
+    assert.equal(audits[0].reason, 'skill-not-loaded');
+    assert.equal(audits[2].reason, 'allowed');
+    assert.ok(!JSON.stringify(audits).includes('# Use Modern Java'));
+    const broken = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' });
+    assert.equal(broken.status, 0);
+  });
+}
 
 test('scratch patch bodies never become independent script writes; following commands still count', () => {
   const patch = "*** Begin Patch\n*** Update File: C:/repo/.scratch/probe/prepare_classpath.py\n@@\n+args = 'javac PerfMissingDiagnosis.java'\n+(root / 'javac.args').write_text(args, encoding='utf-8')\n*** End Patch";

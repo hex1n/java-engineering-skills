@@ -674,7 +674,15 @@ function main() {
   return 0;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function isEntryPoint() {
+  if (!process.argv[1]) return false;
+  try {
+    // Node resolves module URLs through symlinks (including macOS /var -> /private/var).
+    return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch { return false; }
+}
+
+if (isEntryPoint()) {
   try { process.exitCode = main(); } catch (error) {
     // A failure of the check must never block editing.
     process.stderr.write(`${PLUGIN} pre-edit skill check skipped: ${error.message}\n`);
