@@ -1,5 +1,46 @@
 # Validation record
 
+## Cross-platform hook CI repair — 2026-10-15
+
+This is a new verification against main `6ccca0b`, independent of the author
+records below. The task workspace was initially empty; no existing changes
+were modified. There were no open PRs when checked.
+
+- Original Actions run [38733708099](https://github.com/hex1n/java-engineering-skills/actions/runs/38733708099):
+  Ubuntu succeeded; macOS failed with an empty hook response and a null-property
+  assertion; Windows Node 22.23.3 failed with `MODULE_NOT_FOUND` for the copied hook.
+- Local macOS Node 26.0.0 reproduced the original failure. With the new process
+  tests and the original entry guard, shell and directory-alias launches failed
+  with exit 0 and empty stdout, while the canonical-path launch passed. The
+  diagnostic identified `/var/folders/...` versus `/private/var/folders/...`.
+- Comparing both entry paths with `fs.realpathSync` fixed that reproduction.
+  Resolution failure returns false; no `import.meta.main` version requirement
+  was introduced. Existing module imports remain covered by the test suite.
+- The Unicode-copy workaround follows [Node issue 61878](https://github.com/nodejs/node/issues/61878).
+  The Windows cause is inferred from the original CI error and the upstream
+  reproduction, rather than a locally executed Windows before/after comparison.
+  The fixture retains Chinese characters and spaces, uses `filter: () => true`,
+  and verifies the copied hook content before execution.
+- Each of shell, canonical-path and directory-alias launches verifies two denies,
+  successful skill reads followed by allow, and audit decisions deny/deny/allow.
+  Windows uses a directory junction so the alias case needs no symlink privilege.
+  An unexpectedly empty deny response includes status, stderr and path diagnostics.
+- Local checks passed: `node scripts/check.mjs`, all 37 tests with
+  `node --test "tests/*.test.mjs"`, both README Claude plugin/marketplace manifest
+  validators, and `git diff --check`. No live Codex editing session or Java
+  compilation was executed for this repair.
+- PR [#1](https://github.com/hex1n/java-engineering-skills/pull/1), code commit
+  `70ef02d`: Actions [38742024633](https://github.com/hex1n/java-engineering-skills/actions/runs/38742024633)
+  completed successfully on all three platforms: Ubuntu Node 22.23.3,
+  Windows Node 22.23.3, macOS Node 22.23.2. Each executed 37 tests with
+  37 passes, zero failures, and passed structure checks. This validates the
+  repaired fixture on Windows; it does not independently isolate the original
+  native-copy bug. No merge or release was performed.
+- A read-only Claude Review (quick/Sonnet) was attempted via the
+  Claude Code for Codex plugin. Job `a31fbc17-9e67-4fd0-925c-8da9f3132763`
+  exited 1 before model work (zero tokens/cost), producing no review findings.
+  The changes are self-reviewed; independent review remains unavailable.
+
 ## Version 0.8.4 — Codex hook launcher and deny decision — 2026-10-15
 
 Codex CLI 0.162.1 on Windows never ran the 0.8.3 hook. Its `hooks/list`
