@@ -1,6 +1,6 @@
 {
   "name": "java-engineering-skills",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Java 8–21 backend guidance for implementation, testing, API security, and JVM performance.",
   "author": {
     "name": "Java Engineering Skills contributors"
