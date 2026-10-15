@@ -1,5 +1,40 @@
 # Validation record
 
+## Version 0.8.4 — Codex hook launcher and deny decision — 2026-10-15
+
+Codex CLI 0.162.1 on Windows never ran the 0.8.3 hook. Its `hooks/list`
+showed the `%PLUGIN_ROOT%\hooks\...` command unexpanded, every edit printed
+`hook: PreToolUse Failed`, and a `JES_PRE_EDIT_SKILL_CHECK_DUMP` probe file was
+never written. The Codex command is now `node "${PLUGIN_ROOT}/hooks/..."` with
+no `commandWindows`; Codex substitutes that placeholder in the command text,
+and `hooks/list` then showed the expanded cache path.
+
+With the hook running, a refusal exposed a second defect: the audit recorded
+`skill-not-loaded`, Codex printed `PreToolUse Failed`, and the `apply_patch`
+still created the file. A refusal is now the PreToolUse
+`hookSpecificOutput.permissionDecision: "deny"` decision on stdout with exit 0,
+which the Codex and Claude Code hook references both define as a block. The
+audit field `exitCode` became `decision` (`deny` or `allow`).
+
+Evidence on Windows, Node 26.7.0:
+- All 35 tests, `node scripts/check.mjs`, `claude plugin validate` and
+  `git diff --check` passed. The process test now substitutes `${PLUGIN_ROOT}`
+  into the manifest command and runs it through the shell. Replacing `deny`
+  with `ask` turns it red. It cannot reproduce Codex leaving `%PLUGIN_ROOT%`
+  unexpanded; the 0.162.1 runner source still names `cmd.exe`, so that cause
+  stays unexplained and is established only by the live runs below.
+- Codex 0.162.1 `codex exec`, cache refreshed to 0.8.4 and byte-identical,
+  hook trusted at the new definition through the app-server config API: a
+  read-only `git status` turn printed `PreToolUse Completed` and wrote the dump;
+  an `apply_patch` adding `src/test/java/a/FooTest.java` in a repository outside
+  host temp roots printed `PreToolUse Blocked`, the file was not created, and
+  the model relayed the load instruction.
+- Claude Code 2.1.300, `claude -p --model sonnet --permission-mode
+  bypassPermissions`, plugin loaded in place: the same `Write` was blocked with
+  the hook's message and the file was not created.
+- Not run: a Codex Desktop session, a skill load followed by an allowed retry
+  in either host, and any non-Windows host.
+
 ## Windows hook direct Node launcher — 2026-10-09
 
 The Windows command now starts Node directly with the quoted

@@ -659,12 +659,14 @@ function main() {
       time: new Date().toISOString(), callId: input.tool_use_id ?? input.tool_call_id ?? input.call_id ?? null,
       tool: input.tool_name, targets: result.targets, missing: result.missing,
       reason: result.block ? 'skill-not-loaded' : result.unresolved ? 'unresolved-write' : result.context ? 'reminder' : 'allowed',
-      exitCode: result.block ? 2 : 0,
+      decision: result.block ? 'deny' : 'allow',
     })}\n`);
   } catch (error) { process.stderr.write(`${PLUGIN}: audit unavailable: ${error.code || 'write failed'}\n`); }
   if (result.block) {
-    process.stderr.write(`${result.block}\n`);
-    return 2;
+    // Codex 0.162 on Windows runs the tool after an exit-2 refusal; both hosts honor this deny shape.
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse',
+      permissionDecision: 'deny', permissionDecisionReason: result.block } }));
+    return 0;
   }
   if (result.context) {
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: result.context } }));

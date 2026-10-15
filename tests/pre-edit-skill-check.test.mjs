@@ -206,24 +206,28 @@ test('the hook process keeps refusing, then allows after successful reads and au
   const input = JSON.stringify({ session_id: 's1', tool_use_id: 'edit-1', transcript_path: transcript, ...edit('/repo/src/test/java/a/FooTest.java') });
   const options = { input, encoding: 'utf8', env: { ...process.env,
     PLUGIN_ROOT: pluginRoot, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } };
-  const windowsCommand = JSON.parse(fs.readFileSync(path.join(ROOT,
+  // Codex substitutes ${PLUGIN_ROOT} in the command text, then runs it through the hook shell.
+  const codexCommand = JSON.parse(fs.readFileSync(path.join(ROOT,
     'plugins/java-engineering-skills/.codex-plugin/plugin.json'), 'utf8'))
-    .hooks.hooks.PreToolUse[0].hooks[0].commandWindows;
-  const run = () => process.platform === 'win32'
-    ? spawnSync(windowsCommand, { ...options, shell: true })
-    : spawnSync(process.execPath, [hook], options);
-  const first = run();
-  assert.equal(first.status, 2);
-  assert.match(first.stderr, /java-testing/);
-  assert.equal(run().status, 2);
+    .hooks.hooks.PreToolUse[0].hooks[0].command.replaceAll('${PLUGIN_ROOT}', pluginRoot);
+  const run = () => spawnSync(codexCommand, { ...options, shell: true });
+  // A refusal is the deny decision on stdout with exit 0; Codex runs the tool after an exit-2 refusal.
+  const decision = result => {
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null;
+  };
+  const first = decision(run());
+  assert.equal(first.permissionDecision, 'deny');
+  assert.match(first.permissionDecisionReason, /java-testing/);
+  assert.equal(decision(run()).permissionDecision, 'deny');
   const records = ['java-testing', 'use-modern-java'].flatMap(skill => [
     call(skill, 'exec', `text(await tools.exec_command(${JSON.stringify({ cmd: command(skill) })}));`),
     output(skill, JSON.stringify({ exit_code: 0, output: body(skill) })),
   ]);
   fs.writeFileSync(transcript, records.map(record => JSON.stringify(record)).join('\n'));
-  assert.equal(run().status, 0);
+  assert.equal(decision(run()), null);
   const audits = fs.readFileSync(path.join(dir, 's1.audit.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
-  assert.deepEqual(audits.map(item => item.exitCode), [2, 2, 0]);
+  assert.deepEqual(audits.map(item => item.decision), ['deny', 'deny', 'allow']);
   assert.equal(audits[0].callId, 'edit-1');
   assert.equal(audits[0].reason, 'skill-not-loaded');
   assert.equal(audits[2].reason, 'allowed');
