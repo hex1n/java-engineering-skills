@@ -592,7 +592,7 @@ function stateFile(key) {
 
 function message(hits, hard) {
   const list = hits.map(hit => `\`${PLUGIN}:${hit.skill}\` (for ${path.basename(hit.file)})`).join(', ');
-  const how = 'In Claude Code invoke it with the Skill tool; in Codex read that skill\'s SKILL.md.';
+  const how = 'In Claude Code invoke it with the Skill tool; in Codex read that skill\'s full SKILL.md and preserve the successful tool result, including exit_code (for example, text(await tools.exec_command(...)), not only its output).';
   return hard
     ? `${PLUGIN}: this edit was not applied. Load ${list} now, then retry this exact edit. ${how}`
     : `${PLUGIN}: this edit touches ${list}. If that concern is part of the change, load the skill before continuing. ${how} Shown once per session.`;
@@ -630,6 +630,15 @@ function transcripts(input) {
   const files = [];
   if (input.agent_id && input.transcript_path && input.session_id) {
     files.push(path.join(path.dirname(input.transcript_path), input.session_id, 'subagents', `agent-${input.agent_id}.jsonl`));
+    const codex = /^(.*[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]+\.jsonl$/.exec(input.transcript_path);
+    const dir = codex ? codex[1] : path.dirname(input.transcript_path);
+    try {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: Boolean(codex) })) {
+        if (entry.isFile() && entry.name.startsWith('rollout-') && entry.name.endsWith(`-${input.agent_id}.jsonl`)) {
+          files.push(path.join(entry.parentPath, entry.name));
+        }
+      }
+    } catch { /* transcript directory unavailable */ }
   }
   if (input.agent_transcript_path) files.push(input.agent_transcript_path);
   if (!input.agent_id && input.transcript_path) files.push(input.transcript_path);

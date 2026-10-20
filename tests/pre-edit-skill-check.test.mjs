@@ -249,6 +249,39 @@ for (const launch of ['shell', 'realpath', 'alias']) {
   });
 }
 
+test('the hook loads the current child transcript in Codex and Claude layouts without inheriting parent reads', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-child-transcript-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const parent = path.join(dir, 'sessions', '2026', '10', '19', 'rollout-parent.jsonl');
+  const child = '11111111-2222-3333-4444-555555555555';
+  const records = [
+    call('read', 'functions.exec', `text(await tools.exec_command(${JSON.stringify({ cmd: command('use-modern-java') })}));`),
+    output('read', JSON.stringify({ exit_code: 0, output: body('use-modern-java') })),
+  ];
+  const complete = records.map(record => JSON.stringify(record)).join('\n');
+  fs.mkdirSync(path.dirname(parent), { recursive: true });
+  fs.writeFileSync(parent, complete);
+  const transcript = path.join(dir, 'sessions', '2026', '10', '20', `rollout-2026-10-20T16-07-19-${child}.jsonl`);
+  fs.mkdirSync(path.dirname(transcript), { recursive: true });
+  fs.writeFileSync(transcript, JSON.stringify(records[0]));
+  const input = { session_id: 'parent', agent_id: child, transcript_path: parent, ...edit('/repo/src/main/java/Child.java') };
+  const run = () => {
+    const result = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(input), encoding: 'utf8',
+      env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null;
+  };
+  assert.equal(run().permissionDecision, 'deny');
+  fs.writeFileSync(transcript, complete);
+  assert.equal(run(), null);
+  input.agent_id = 'other-child';
+  assert.equal(run().permissionDecision, 'deny');
+  const claude = path.join(path.dirname(parent), 'parent', 'subagents', 'agent-other-child.jsonl');
+  fs.mkdirSync(path.dirname(claude), { recursive: true });
+  fs.writeFileSync(claude, complete);
+  assert.equal(run(), null);
+});
+
 test('scratch patch bodies never become independent script writes; following commands still count', () => {
   const patch = "*** Begin Patch\n*** Update File: C:/repo/.scratch/probe/prepare_classpath.py\n@@\n+args = 'javac PerfMissingDiagnosis.java'\n+(root / 'javac.args').write_text(args, encoding='utf-8')\n*** End Patch";
   assert.deepEqual(extractEdits('apply_patch', patch), []);
