@@ -79,7 +79,10 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 硬规则的重试不会消耗检查；只有软提醒在每个会话（子代理单独计）最多出现一次。
 加载状态依据同一代理的调用及成功回执：Claude Code 的 `Skill` 成功结果，或读取
 `SKILL.md` 后返回当前插件完整正文的结果。仅提及路径、尚未完成、失败、截断的
-读取均不算已加载；旧版未经验证的缓存会从回执重建。读取被截断时单独完整读取
+读取均不算已加载；旧版未经验证的缓存会从回执重建。Codex 通过 `functions.exec`
+读取时保留完整成功回执，包括 `exit_code`，例如 `text(await tools.exec_command(...))`；
+只输出 `.output` 会丢失成功状态。子代理分别从 Codex 的 rollout 文件或 Claude Code
+的 subagents 文件读取回执，不继承父代理的加载状态。读取被截断时单独完整读取
 该文件再重试。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
 scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-string
 的正文按写入内容处理：正文里提到的文件名不算写入目标，写入 `*.java` 时正文
@@ -92,9 +95,9 @@ scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-st
 不会阻止编辑。`jvm-performance` 与 `java-design` 的需求通常在提问时出现，
 仍由 `description` 选用。
 
-Codex 按 hook 内容的哈希记录信任，未信任的 hook 会被跳过。首次安装以及每次
-升级改动了 hook 的插件版本后，都需要在 Codex CLI 或 Desktop 中重新信任本插件的
-`PreToolUse` hook。
+Codex 按 hook 定义的哈希记录信任，未信任或定义变化的 hook 会被跳过。安装或
+升级后，在 Codex CLI 或 Desktop 中检查实际加载的插件版本与信任状态，必要时
+重新信任本插件的 `PreToolUse` hook。
 
 ### Codex
 

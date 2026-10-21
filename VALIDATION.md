@@ -1,5 +1,52 @@
 # Validation record
 
+## Version 0.8.5 — Codex child skill receipts — 2026-10-20
+
+A real Java review ablation was denied after its Codex child had read the full
+`use-modern-java/SKILL.md`. The initial read exposed only the shell result's
+`output`, losing `exit_code`. A repeated read preserved the complete successful
+result: the existing receipt parser recognized it, but the live hook still
+denied the edit. Transcript discovery only tried Claude Code's nested child path
+and never reached Codex's flat `rollout-...-<child-id>.jsonl` file.
+
+Discovery now selects the exact child ID in Codex's sessions tree, including
+different parent/child date directories. It keeps Claude's nested path and the
+explicit `agent_transcript_path`, and never substitutes the parent's receipts.
+The refusal and README explain preserving the complete successful result in
+`functions.exec`. Matched calls, successful completion, full current skill text,
+per-agent state and persistent hard refusals remain required.
+
+Evidence on Windows, Node 26.7.0, Codex CLI 0.163.0:
+
+- The owning hook-process regression failed before the fix and passed after it.
+  It covers an unfinished child read, a completed cross-date child read, a
+  different child despite parent/sibling success, and Claude's nested layout.
+  Independent current-model review found the initial same-directory limitation;
+  its cross-date regression failed before that repair and passed afterward.
+  Re-review closed the finding without additional concrete defects.
+- Replaying the actual completed skill-read records in an isolated hook fixture
+  changed from `deny`/empty loaded state to `allow`/`use-modern-java` loaded.
+  All 36 tests, `node scripts/check.mjs`, both Claude manifest validators and
+  `git diff --check` passed. No skill rules or Java examples changed.
+- Normal marketplace installation refreshed the Codex cache to 0.8.5; hook
+  source/cache bytes match. `hooks/list` points to 0.8.5 and reports enabled and
+  trusted. Its hook-definition hash stayed unchanged; an idempotent trust-hash
+  upsert through the configuration API returned `ok`.
+- The original child retried the blocked experiment. Its live audit recorded
+  `allow`, no missing skill and `use-modern-java` in that child's loaded state.
+  The existing `unresolved-write` warning remained; the hook was not skipped or
+  disabled. The first mutant compilation failed in the validation harness,
+  which establishes no detected business fault. After fixing only its javac
+  classpath argument transport, the original handler's 17 tests passed, the
+  compiled mutant failed exactly the normal-event premature-success assertion,
+  and the restored original passed all 17 again. The reviewed production source
+  bytes remained unchanged; the separate 45-test focused run also passed.
+
+Evidence is retained in the initiating Organon task's
+`.scratch/20261020-euthyna-rewrite/` and the isolated review's `.review-output/`;
+it is not distributed with this plugin. No non-Windows runtime or fresh live
+Claude Code load/retry loop was exercised for this change.
+
 ## Cross-platform hook CI repair — 2026-10-15
 
 This is a new verification against main `6ccca0b`, independent of the author
