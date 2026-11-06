@@ -519,6 +519,10 @@ function containsSkill(text, skill) {
   return normalizeRead(text).includes(skillBodies.get(skill));
 }
 
+const reportedExitCodes = output => [...output.matchAll(/"exit_code"\s*:\s*(-?\d+)|(?:Process exited with code|Exit code:)\s*(-?\d+)/gi)]
+  .map(match => Number(match[1] ?? match[2]));
+const reportsFailure = (output, exitCodes) => exitCodes.some(code => code !== 0) || /"isError"\s*:\s*true/.test(output);
+
 function results(line) {
   let record;
   try { record = JSON.parse(line); } catch { return []; }
@@ -562,10 +566,8 @@ export function transcriptLoads() {
       read.text += `\n${output}`;
       const cell = /Script running with cell ID\s+(\S+)/.exec(output)?.[1];
       const session = /"session_id"\s*:\s*(\d+)/.exec(output)?.[1];
-      const exitCodes = [...output.matchAll(/"exit_code"\s*:\s*(-?\d+)|(?:Process exited with code|Exit code:)\s*(-?\d+)/gi)]
-        .map(match => Number(match[1] ?? match[2]));
-      const failed = result.failed || exitCodes.some(code => code !== 0) || /"isError"\s*:\s*true/.test(output);
-      if (failed) continue;
+      const exitCodes = reportedExitCodes(output);
+      if (result.failed || reportsFailure(output, exitCodes)) continue;
       if (cell) { continuations.set(`cell:${cell}`, read); continue; }
       if (session && !exitCodes.length) { continuations.set(`session:${session}`, read); continue; }
       if (!read.direct && !exitCodes.length) continue;
@@ -575,6 +577,23 @@ export function transcriptLoads() {
   };
 }
 
+/**
+ * Skills one PostToolUse result proves loaded: the hook pairs the call with its
+ * own result, so only completion, exit code 0 and the full skill body remain to
+ * check. Codex ephemeral threads, such as Desktop side chats, keep no transcript;
+ * this receipt is their only record of a completed read. A read still running
+ * (a session ID and no exit code) does not count.
+ */
+export function receiptLoads(toolName, toolInput, toolResponse) {
+  const skills = skillLoads(toolName, toolInput);
+  if (!skills.length || toolResponse == null) return [];
+  // Serialized first: strings() keeps an object's values but drops the exit_code key.
+  const output = strings(typeof toolResponse === 'string' ? toolResponse : JSON.stringify(toolResponse)).join('\n');
+  const exitCodes = reportedExitCodes(output);
+  if (!exitCodes.length || reportsFailure(output, exitCodes)) return [];
+  return skills.filter(skill => containsSkill(output, skill));
+}
+
 export function loadedInTranscript(file, wanted) {
   const found = new Set();
   let text;
@@ -582,6 +601,14 @@ export function loadedInTranscript(file, wanted) {
   const consume = transcriptLoads();
   for (const line of text.split('\n')) for (const skill of consume(line)) if (wanted.includes(skill)) found.add(skill);
   return found;
+}
+
+function receiptedSkills(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return []; }
+  return text.split('\n').flatMap(line => {
+    try { return JSON.parse(line).loaded || []; } catch { return []; }
+  });
 }
 
 function stateFile(key) {
@@ -653,10 +680,20 @@ function main() {
   }
   const key = [input.session_id || 'unknown', input.agent_id].filter(Boolean).join('-');
   const file = stateFile(key);
+  const callId = input.tool_use_id ?? input.tool_call_id ?? input.call_id ?? null;
+  const receipts = file.replace(/\.json$/, '.receipts.jsonl');
+  if (input.hook_event_name === 'PostToolUse') {
+    const loaded = receiptLoads(input.tool_name, input.tool_input, input.tool_response);
+    // Appended, never rewritten: a concurrent PreToolUse call rewrites the state file.
+    if (loaded.length) {
+      fs.appendFileSync(receipts, `${JSON.stringify({ time: new Date().toISOString(), callId, tool: input.tool_name, loaded })}\n`);
+    }
+    return 0;
+  }
   let state = {};
   try { state = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first call */ }
   const findLoaded = wanted => {
-    const found = new Set();
+    const found = new Set(receiptedSkills(receipts).filter(skill => wanted.includes(skill)));
     for (const transcript of transcripts(input)) for (const skill of loadedInTranscript(transcript, wanted)) found.add(skill);
     return found;
   };
@@ -665,16 +702,18 @@ function main() {
   // No source, command text or transcript contents in the audit trail.
   try {
     fs.appendFileSync(file.replace(/\.json$/, '.audit.jsonl'), `${JSON.stringify({
-      time: new Date().toISOString(), callId: input.tool_use_id ?? input.tool_call_id ?? input.call_id ?? null,
+      time: new Date().toISOString(), callId,
       tool: input.tool_name, targets: result.targets, missing: result.missing,
       reason: result.block ? 'skill-not-loaded' : result.unresolved ? 'unresolved-write' : result.context ? 'reminder' : 'allowed',
       decision: result.block ? 'deny' : 'allow',
     })}\n`);
   } catch (error) { process.stderr.write(`${PLUGIN}: audit unavailable: ${error.code || 'write failed'}\n`); }
   if (result.block) {
+    const reason = transcripts(input).some(transcript => fs.existsSync(transcript)) ? result.block
+      : `${result.block} This thread has no transcript on disk (for example a Codex Desktop side chat), so only this plugin's PostToolUse hook can record the load; if a completed read is still refused, check that the hook is trusted.`;
     // Codex 0.162 on Windows runs the tool after an exit-2 refusal; both hosts honor this deny shape.
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse',
-      permissionDecision: 'deny', permissionDecisionReason: result.block } }));
+      permissionDecision: 'deny', permissionDecisionReason: reason } }));
     return 0;
   }
   if (result.context) {

@@ -20,6 +20,19 @@
             }
           ]
         }
+      ],
+      "PostToolUse": [
+        {
+          "matcher": "Bash|exec|exec_command|shell|shell_command|local_shell",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${PLUGIN_ROOT}/hooks/pre-edit-skill-check.mjs\"",
+              "timeout": 30,
+              "statusMessage": "Recording Java engineering skill loads"
+            }
+          ]
+        }
       ]
     }
   },

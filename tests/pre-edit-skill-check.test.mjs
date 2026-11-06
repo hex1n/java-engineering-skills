@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, decide, extractEdits, isScratch, loadedInTranscript, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { classify, decide, extractEdits, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
@@ -15,6 +15,11 @@ const body = skill => fs.readFileSync(path.join(ROOT, 'plugins/java-engineering-
 const call = (id, name, input) => ({ type: 'response_item', payload: { type: 'custom_tool_call', call_id: id, name, input } });
 const output = (id, value) => ({ type: 'response_item', payload: { type: 'custom_tool_call_output', call_id: id, output: value } });
 const command = skill => `Get-Content C:/plugins/skills/${skill}/SKILL.md`;
+// Key layout of a completed nested exec_command result in a local Codex rollout
+// (2026-11-06, Windows Get-Content, CRLF output); a yielded read carries
+// session_id in place of exit_code.
+const nested = (skill, extra = {}) => ({ chunk_id: '007ad4', wall_time_seconds: 2.0659738, exit_code: 0,
+  original_token_count: 2472, output: body(skill).replace(/\n/g, '\r\n'), ...extra });
 
 test('path rules separate tests, production code, SQL, and scratch files', () => {
   assert.deepEqual(skills([{ path: '/repo/app/src/test/java/a/FooTest.java' }]), ['java-testing:hard', 'use-modern-java:hard']);
@@ -280,6 +285,53 @@ test('the hook loads the current child transcript in Codex and Claude layouts wi
   fs.mkdirSync(path.dirname(claude), { recursive: true });
   fs.writeFileSync(claude, complete);
   assert.equal(run(), null);
+});
+
+test('a PostToolUse receipt needs the skill read, exit code 0 and the full current body', () => {
+  const read = { command: command('use-modern-java') };
+  const { exit_code: _, ...running } = nested('use-modern-java');
+  assert.deepEqual(receiptLoads('Bash', read, nested('use-modern-java')), ['use-modern-java']);
+  assert.deepEqual(receiptLoads('Bash', read, JSON.stringify(nested('use-modern-java'))), ['use-modern-java']);
+  assert.deepEqual(receiptLoads('Bash', read, { ...running, session_id: 75659 }), []);
+  assert.deepEqual(receiptLoads('Bash', read, nested('use-modern-java', { exit_code: 1 })), []);
+  assert.deepEqual(receiptLoads('Bash', read, nested('use-modern-java', { output: body('use-modern-java').slice(0, 300) })), []);
+  assert.deepEqual(receiptLoads('Bash', { command: command('java-testing') }, nested('use-modern-java')), []);
+  assert.deepEqual(receiptLoads('Bash', { command: `echo C:/plugins/skills/use-modern-java/SKILL.md` }, nested('use-modern-java')), []);
+});
+
+test('a Codex side chat without a transcript allows the edit after its own PostToolUse receipt', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-side-chat-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { PreToolUse: [pre], PostToolUse: [post] } = JSON.parse(fs.readFileSync(path.join(ROOT,
+    'plugins/java-engineering-skills/.codex-plugin/plugin.json'), 'utf8')).hooks.hooks;
+  assert.ok(new RegExp(`^(?:${post.matcher})$`).test('Bash'));
+  const run = (entry, input) => {
+    const result = spawnSync(entry.hooks[0].command.replaceAll('${PLUGIN_ROOT}', path.dirname(path.dirname(HOOK))), {
+      input: JSON.stringify({ session_id: 'side', transcript_path: null, cwd: '/repo', ...input }), encoding: 'utf8', shell: true,
+      env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout ? JSON.parse(result.stdout).hookSpecificOutput : null;
+  };
+  const patch = { hook_event_name: 'PreToolUse', tool_name: 'apply_patch', tool_use_id: 'patch',
+    tool_input: { command: '*** Begin Patch\n*** Update File: src/main/java/a/JpaViewScope.java\n@@\n+/** View scope. */\n*** End Patch' } };
+  const read = (tool_response, extra = {}) => ({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'read',
+    tool_input: { command: "Get-Content -LiteralPath 'C:/plugins/skills/use-modern-java/SKILL.md' -Raw" }, tool_response, ...extra });
+  const denied = run(pre, patch);
+  assert.equal(denied.permissionDecision, 'deny');
+  assert.match(denied.permissionDecisionReason, /use-modern-java[\s\S]*no transcript on disk/);
+  const { exit_code: _, ...running } = nested('use-modern-java');
+  for (const attempt of [read({ ...running, session_id: 75659 }), read(nested('use-modern-java', { exit_code: 1 })),
+    read(nested('use-modern-java'), { agent_id: 'child' })]) {
+    assert.equal(run(post, attempt), null);
+    assert.equal(run(pre, patch).permissionDecision, 'deny');
+  }
+  assert.equal(run(post, read(nested('use-modern-java'))), null);
+  assert.equal(run(pre, patch), null);
+  const receipts = fs.readFileSync(path.join(dir, 'side.receipts.jsonl'), 'utf8');
+  assert.deepEqual(receipts.trim().split('\n').map(line => JSON.parse(line).loaded), [['use-modern-java']]);
+  assert.ok(!receipts.includes('# Use Modern Java'));
+  const audits = fs.readFileSync(path.join(dir, 'side.audit.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(audits.map(item => item.decision), ['deny', 'deny', 'deny', 'deny', 'allow']);
 });
 
 test('scratch patch bodies never become independent script writes; following commands still count', () => {
