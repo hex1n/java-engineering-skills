@@ -82,7 +82,10 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 读取均不算已加载；旧版未经验证的缓存会从回执重建。Codex 通过 `functions.exec`
 读取时保留完整成功回执，包括 `exit_code`，例如 `text(await tools.exec_command(...))`；
 只输出 `.output` 会丢失成功状态。子代理分别从 Codex 的 rollout 文件或 Claude Code
-的 subagents 文件读取回执，不继承父代理的加载状态。读取被截断时单独完整读取
+的 subagents 文件读取回执，不继承父代理的加载状态。Codex 另由同一脚本的
+`PostToolUse` hook 按同样条件（退出码 0、当前完整正文）为本代理写入
+`*.receipts.jsonl`；Desktop 侧聊等临时线程不落盘 rollout，只能依靠这份回执，
+仍在运行（只返回 `session_id`）的读取不算。读取被截断时单独完整读取
 该文件再重试。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
 scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-string
 的正文按写入内容处理：正文里提到的文件名不算写入目标，写入 `*.java` 时正文
@@ -97,7 +100,7 @@ scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-st
 
 Codex 按 hook 定义的哈希记录信任，未信任或定义变化的 hook 会被跳过。安装或
 升级后，在 Codex CLI 或 Desktop 中检查实际加载的插件版本与信任状态，必要时
-重新信任本插件的 `PreToolUse` hook。
+重新信任本插件的 `PreToolUse` 与 `PostToolUse` hook。
 
 ### Codex
 

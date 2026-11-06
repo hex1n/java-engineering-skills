@@ -1,5 +1,42 @@
 # Validation record
 
+## Version 0.8.6 — Codex receipts without a transcript — 2026-11-06
+
+A Codex Desktop side chat kept refusing a Javadoc-only `apply_patch` on a Java
+file after full, successful `use-modern-java/SKILL.md` reads with `Get-Content`
+and `cat`. Its audit recorded three `skill-not-loaded` denies. The side chat is
+an ephemeral `thread/fork` (Codex Desktop logs), absent from `sessions/`,
+`state_5.sqlite` and `thread_history_1.sqlite`, and Codex's hook input schema
+declares `transcript_path` as `string | null`. With no transcript, no receipt
+could ever be found.
+
+A Codex `PostToolUse` entry now runs the same script. It records a load in an
+append-only, per-session or per-agent `*.receipts.jsonl` when the call reads the
+skill's `SKILL.md` and its result reports exit code 0 and the full current body.
+A still-running read (`session_id`, no exit code), a failure, a truncated body,
+or another agent's receipt does not count. `PreToolUse` reads receipts alongside
+transcripts. A refusal in a thread without a transcript says that only the
+`PostToolUse` hook can record the load. The `PreToolUse` entry is unchanged, so
+its trust key and hash stay valid; the new entry needs its own trust. Receipts
+also count in threads that do have transcripts, and every Codex shell call now
+starts one more hook process.
+
+Evidence on Windows, Node 26.7.0:
+
+- A hook-process regression drives the manifest commands with
+  `transcript_path: null` and a result shaped like a real nested
+  `exec_command` result from a local rollout. The pre-fix hook still denied
+  the edit after a successful read; the fixed hook allows it. Five targeted
+  mutants (exit code not required, non-zero exit ignored, body unchecked,
+  receipts shared across agents, object result not serialized) were each
+  detected by the intended assertion.
+- All 40 tests, `node scripts/check.mjs`, both Claude manifest validators and
+  `git diff --check` passed.
+- Not run: a live Codex `PostToolUse` call, so the actual `tool_response` shape
+  is unconfirmed (object, JSON string and `Process exited with code` text are
+  accepted; a result without an exit code records nothing), and a Codex Desktop
+  side chat after installing 0.8.6 and trusting the new hook.
+
 ## Version 0.8.5 — Codex child skill receipts — 2026-10-20
 
 A real Java review ablation was denied after its Codex child had read the full
