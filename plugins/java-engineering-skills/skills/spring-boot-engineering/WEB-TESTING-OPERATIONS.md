@@ -23,9 +23,22 @@ Source: [Spring WebFlux concurrency model](https://docs.spring.io/spring-framewo
 |---|---|
 | Pure business calculation or policy | Plain unit test with real value inputs. |
 | JSON, validation, route/error behavior | Appropriate MVC/WebFlux slice and relevant security configuration. |
-| Bean conditions or property binding | Small context test exercising the condition/configuration. |
+| Bean registration, selection, or property binding | Focused context retaining relevant registration paths, competing candidates, and configuration. |
 | Transaction proxy, ORM mapping, query, or locking | Managed bean with the actual database dialect/version when claiming that behavior. |
 | Startup and real HTTP integration | Full context/server test with explicit dependency lifecycle. |
+
+Judge existing tests by the same boundary as new ones. For wiring, a test that
+replaces two production candidates with one mock has removed the selection
+problem; a manually registered bean can bypass duplicate scanning/import paths.
+Retain those conditions and observe the selected collaborator or its behavior.
+For interception, exercise the managed entry point rather than constructing
+the object directly. Use representative real dependencies for claims about
+database or remote integration.
+
+Expand to a full context or application start when the question depends on
+configuration interactions the focused test leaves unresolved. An application
+startup claim needs that evidence; a local context pass establishes only its
+covered configuration and paths, including which lazy dependencies were reached.
 
 Choose mocking annotations, slice imports, and client helpers from the installed
 Boot/Spring version. In a random-port server test, test-client and server work
@@ -35,7 +48,7 @@ database tests do not prove production SQL, locking, or collation behavior.
 
 Source: [Testing Boot applications](https://docs.spring.io/spring-boot/3.5/reference/testing/spring-boot-applications.html).
 
-## Observe the changed mechanism
+## Observe runtime behavior
 
 For a pool, cache, or downstream call, observe saturation/queueing, timeouts,
 errors, and latency alongside throughput. Keep metric tag sets bounded; user

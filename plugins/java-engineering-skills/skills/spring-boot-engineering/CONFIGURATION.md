@@ -71,11 +71,19 @@ dependency graph before overriding an individual Spring, Jackson, logging,
 servlet, or persistence version; an isolated override can create binary/API
 incompatibility. Prefer the existing starter when its managed integration fits.
 
-When a bean is missing, duplicated, or unexpectedly selected, inspect component
-scan scope, active profiles, conditional configuration, qualifiers, and the
-condition evaluation report. Auto-configuration can back off when user beans
-are present. Replacing it with a custom bean can also remove defaults the
-application relied on.
+To reason about bean wiring, connect the relevant registration paths to the
+candidates available under the active configuration and the consumer's
+selection rules. Component scanning, configuration imports, profiles, and
+conditional registration determine which candidates exist; qualifiers, primary
+selection, generic types, and injection-point names may affect resolution in
+the project's Spring version. The condition evaluation report can clarify
+auto-configuration decisions. A user bean can make auto-configuration back off,
+removing defaults the application relied on.
+
+Distinguish duplicate registration of one responsibility from intentional
+multiple implementations. Preserve the consumer's intended choice when
+moving an entry point or changing injection style; successful injection alone
+does not establish that the intended implementation was selected.
 
 Prefer constructor injection for required collaborators and explicit qualifiers
 when selection is ambiguous. Resolve a circular dependency by examining
@@ -83,7 +91,8 @@ responsibility/lifecycle rather than enabling circular references by default.
 Container singleton scope does not protect mutable fields from concurrent
 requests.
 
-Source: [Boot auto-configuration](https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html).
+Sources: [Boot auto-configuration](https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html),
+[Spring 5.3 injection selection](https://docs.spring.io/spring-framework/docs/5.3.31/reference/html/core.html#beans-autowired-annotation-qualifiers).
 
 ## Properties
 

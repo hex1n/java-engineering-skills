@@ -195,7 +195,8 @@ node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例
 （`prompt.md` 加 `graders/*.md`）：OceanBase 抢任务、Boot 2.3 升 2.7、JVM
-jstat 误读三个场景，各自检查对应 skill 是否触发以及结论是否避开了埋点。
+jstat 误读和 Spring 装配证据分析，各自检查对应 skill 是否触发以及结论是否
+避开了埋点。Spring 分析场景还检查纯计算是否被不必要地要求做容器验证。
 该命令目前是早期访问功能，账号未开通时会提示 `early access`；开通后
 `claude plugin eval ./plugins/java-engineering-skills` 即可运行。
 

@@ -1,5 +1,40 @@
 # Validation record
 
+## Unreleased — Spring reasoning and evidence — 2026-11-08
+
+An inspected consumer session had read the Spring skill before its wiring
+failures. That establishes an execution/evidence gap, not a missing-install
+cause. The revised entry covers questions and decisions about Spring behavior,
+including read-only explanation and review. It replaces the unconditional
+proxy/completion checklist with mechanism-specific reasoning and claim-scoped
+evidence. The existing references explain candidate selection and tests that
+retain the registration paths and competing beans relevant to the question.
+
+Evidence on Windows:
+
+- The pre-change and final skill revisions each completed one independent,
+  fresh-context trial on the same current model, using the same synthetic
+  read-only request in `evals/spring-wiring-evidence/prompt.md`. Each agent was
+  given its skill snapshot and the raw excerpts, without the grader or expected
+  answer. No prompted repairs were made. Both identified the two registration
+  paths, the lost client selection, and the direct-construction test's limited
+  scope; both allowed local analysis without remote services and kept pure
+  normalization at the unit-test boundary. The revised arm also explicitly
+  proposed observing the selected client after correction. One run per arm
+  establishes neither a repeatable improvement nor a general success rate.
+- `node scripts/check.mjs` and all 40 Node tests passed before and after the
+  skill edits. The skill-creator validator, both Claude manifest validators,
+  and the final diff whitespace check passed. The plugin validator reported
+  the existing missing-icon warning; no manifest or icon changed, and adding
+  a listing icon is outside this instructional change.
+- Not run: live Spring execution of the illustrative excerpts, implicit
+  invocation trials, or the Claude agent/grader eval. The paired trial
+  explicitly supplied the skill, so it does not establish automatic selection.
+  Cross-runtime or second-model evaluation was not authorized for this task.
+  The new reusable eval includes a skill-invocation grader for a future run.
+
+No hook, runtime setting, installed cache, or release version was changed.
+
 ## Version 0.8.6 — Codex receipts without a transcript — 2026-11-06
 
 A Codex Desktop side chat kept refusing a Javadoc-only `apply_patch` on a Java
