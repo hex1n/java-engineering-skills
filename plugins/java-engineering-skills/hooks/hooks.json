@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-edit-skill-check.mjs\"",
-            "timeout": 30
+            "timeout": 5
           }
         ]
       }
