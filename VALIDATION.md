@@ -1,5 +1,33 @@
 # Validation record
 
+## Version 0.8.7 — Pre-edit check time budget — 2026-11-17
+
+A consumer session on a machine short of memory waited on the pre-edit check
+before most edits and shell calls. In a 167-minute stretch of its transcript,
+18 of the 19 recorded hook events for this check were cancellations at the
+30-second limit; the edits then ran unchecked. The check itself does little on
+most calls: it reads the transcript only while a matching skill is not yet
+recorded as loaded. The wait was the Node process failing to start in time
+under load.
+
+The `PreToolUse` timeout is now 5 seconds for Claude Code and Codex. A check
+that cannot finish in that time is skipped, as before, so the cost of a loaded
+machine is bounded per call. The Codex `PostToolUse` entry keeps its 30 seconds:
+a lost receipt there leaves later edits refused. The Codex `PreToolUse` entry
+changed, so its trust key and hash change and it needs trusting again.
+
+This release also carries the Spring change recorded below as unreleased.
+
+Evidence on Windows, Node 26.7.0:
+
+- On the idle machine the hook process took 1.5 to 2.5 seconds for a shell call
+  with no matching rule (three runs against that session's 3.4 MB transcript).
+- `node scripts/check.mjs` and all Node tests passed after the change.
+- Not run: the check under memory pressure after the change, a live Codex call
+  with the re-trusted hook, and whether 5 seconds is ever too short for a first
+  matching edit that reads a large transcript on a loaded machine; such a call
+  is then allowed unchecked.
+
 ## Unreleased — Spring reasoning and evidence — 2026-11-08
 
 An inspected consumer session had read the Spring skill before its wiring
