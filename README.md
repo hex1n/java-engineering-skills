@@ -204,7 +204,8 @@ node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 jstat 误读和 Spring 装配证据分析，各自检查对应 skill 是否触发以及结论是否
 避开了埋点。Spring 分析场景还检查纯计算是否被不必要地要求做容器验证。
 该命令目前是早期访问功能，账号未开通时会提示 `early access`；开通后
-`claude plugin eval ./plugins/java-engineering-skills` 即可运行。
+`claude plugin eval ./plugins/java-engineering-skills` 即可运行。这些用例至今
+还没有被评测器实际跑过（见 VALIDATION.md），目前只是写好的检查，不是已通过的结果。
 
 离线检查覆盖两个插件清单及 marketplace 的对应关系、所有 skill 的包内引用、
 未被入口引用的资料，以及现代 Java 规则索引与正文的版本一致性。
