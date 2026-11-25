@@ -41,8 +41,10 @@ behavior silently or stop a build:
   express "profile x also activates y" as `spring.profiles.group.x=y` in a
   non-profile-specific document. `spring.config.use-legacy-processing`
   restores the old logic and survives until Boot 3. The same release removes
-  JUnit 5's vintage engine from the test starter, so JUnit 4 tests stop running
-  rather than fail.
+  JUnit 5's vintage engine from the test starter. If `junit:junit` is still on
+  the test classpath (declared directly or brought in by a library such as
+  Testcontainers 1.x), JUnit 4 tests compile and silently stop running;
+  otherwise they fail to compile with `package org.junit does not exist`.
   [2.4 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.4-Release-Notes),
   [config data migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-Config-Data-Migration-Guide).
 - 2.5 redesigns `schema.sql`/`data.sql` support and runs `data.sql` before
