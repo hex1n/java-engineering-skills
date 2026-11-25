@@ -736,20 +736,38 @@ export function decide(input, state, { findLoaded = () => new Set() } = {}) {
   };
 }
 
+const listDir = dir => { try { return fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; } };
+const rolloutsIn = (dir, agentId) => listDir(dir)
+  .filter(entry => entry.isFile() && entry.name.startsWith('rollout-') && entry.name.endsWith(`-${agentId}.jsonl`))
+  .map(entry => path.join(dir, entry.name));
+
+/**
+ * A Codex child's rollout files. Codex keeps rollouts under sessions/YYYY/MM/DD,
+ * and a child starts no earlier than its parent, so the parent's day and the
+ * days after it are listed first; earlier days are listed only when none of
+ * those holds the child. Only day directories are walked, never all history.
+ */
+export function codexChildRollouts(root, parentDay, agentId) {
+  const named = (dir, pattern) => listDir(dir).filter(entry => entry.isDirectory() && pattern.test(entry.name)).map(entry => entry.name);
+  const days = [];
+  for (const year of named(root, /^\d{4}$/)) {
+    for (const month of named(path.join(root, year), /^\d{2}$/)) {
+      for (const day of named(path.join(root, year, month), /^\d{2}$/)) days.push(`${year}/${month}/${day}`);
+    }
+  }
+  days.sort();
+  const scan = group => group.flatMap(day => rolloutsIn(path.join(root, ...day.split('/')), agentId));
+  const later = scan(days.filter(day => day >= parentDay));
+  return later.length ? later : scan(days.filter(day => day < parentDay).reverse());
+}
+
 function transcripts(input) {
   const files = [];
   if (input.agent_id && input.transcript_path && input.session_id) {
     files.push(path.join(path.dirname(input.transcript_path), input.session_id, 'subagents', `agent-${input.agent_id}.jsonl`));
-    const codex = /^(.*[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]+\.jsonl$/.exec(input.transcript_path);
-    const dir = codex ? codex[1] : path.dirname(input.transcript_path);
-    try {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: Boolean(codex) })) {
-        if (entry.isFile() && entry.name.startsWith('rollout-') && entry.name.endsWith(`-${input.agent_id}.jsonl`)) {
-          // `parentPath` arrived in Node 20.12/21.4; `path` is its older name.
-          files.push(path.join(entry.parentPath ?? entry.path ?? dir, entry.name));
-        }
-      }
-    } catch { /* transcript directory unavailable */ }
+    const codex = /^(.*[\\/]sessions)[\\/](\d{4})[\\/](\d{2})[\\/](\d{2})[\\/]rollout-[^\\/]+\.jsonl$/.exec(input.transcript_path);
+    if (codex) files.push(...codexChildRollouts(codex[1], `${codex[2]}/${codex[3]}/${codex[4]}`, input.agent_id));
+    else files.push(...rolloutsIn(path.dirname(input.transcript_path), input.agent_id));
   }
   if (input.agent_transcript_path) files.push(input.agent_transcript_path);
   if (!input.agent_id && input.transcript_path) files.push(input.transcript_path);

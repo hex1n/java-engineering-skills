@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, decide, extractEdits, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { classify, codexChildRollouts, decide, extractEdits, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
@@ -513,4 +513,33 @@ test('the Claude Code matcher leaves Skill calls alone', () => {
   const matches = tool => new RegExp(`^(?:${entry.matcher})$`).test(tool);
   assert.ok(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash', 'PowerShell'].every(matches));
   assert.equal(matches('Skill'), false);
+});
+
+test('a Codex child rollout is looked up from the parent day forward, older days only as a fallback', t => {
+  // Built layout: sessions/YYYY/MM/DD/rollout-<time>-<id>.jsonl, as in the child
+  // transcript test above. Not checked against a real Codex home directory.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-codex-days-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const child = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+  const put = (day, name) => {
+    const file = path.join(root, ...day.split('/'), name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '');
+    return file;
+  };
+  for (let day = 1; day <= 28; day++) put(`2026/09/${String(day).padStart(2, '0')}`, 'rollout-old-x.jsonl');
+  const stale = put('2026/09/03', `rollout-2026-09-03T10-00-00-${child}.jsonl`);
+  const sameDay = put('2026/10/19', `rollout-2026-10-19T23-59-00-${child}.jsonl`);
+  const nextDay = put('2026/10/20', `rollout-2026-10-20T00-01-00-${child}.jsonl`);
+  put('2026/10/20', 'rollout-2026-10-20T00-01-00-other.jsonl');
+  // Later days are found together; the older copy is never reached.
+  assert.deepEqual(codexChildRollouts(root, '2026/10/19', child), [sameDay, nextDay]);
+  assert.deepEqual(codexChildRollouts(root, '2026/10/20', child), [nextDay]);
+  // A parent day after every child file falls back to earlier days, newest first.
+  assert.deepEqual(codexChildRollouts(root, '2026/11/01', child), [nextDay, sameDay, stale]);
+  assert.deepEqual(codexChildRollouts(root, '2026/10/19', 'missing'), []);
+  assert.deepEqual(codexChildRollouts(path.join(root, 'absent'), '2026/10/19', child), []);
+  // Non-date directories and loose files under sessions are ignored.
+  put('archive', `rollout-2026-10-21-${child}.jsonl`);
+  assert.deepEqual(codexChildRollouts(root, '2026/10/20', child), [nextDay]);
 });
