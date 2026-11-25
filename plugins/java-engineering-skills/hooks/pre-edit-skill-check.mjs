@@ -54,11 +54,19 @@ export function tempRoots(tmpdir) {
 
 const TEMP_ROOTS = tempRoots(os.tmpdir());
 
-export const isScratch = (file, roots = TEMP_ROOTS) => SCRATCH.test(posix(file))
-  || roots.some(root => `${posix(file).toLowerCase()}/`.startsWith(root));
+// Project layout under a scratch or temp directory is still project code: a
+// package named `temp`, or a checkout that happens to live under `/tmp`.
+const PROJECT_LAYOUT = /\/(?:src|flyway|liquibase)\/|\/db\/migration\//i;
+export const isScratch = (file, roots = TEMP_ROOTS) => !PROJECT_LAYOUT.test(posix(file))
+  && (SCRATCH.test(posix(file)) || roots.some(root => `${posix(file).toLowerCase()}/`.startsWith(root)));
 const FILE_TOKEN = /(?<![\w$.:\\/-])[\w.:\\/-]+\.(java|sql|xml|ya?ml|properties)\b/gi;
-// Shell forms that write the files they name. Reads are not gated.
-const IN_PLACE = /\bsed\s+(-\w*i|--in-place)|\bperl\s+-\w*i/;
+// Shell forms that write the files they name. Reads are not gated. Matched on
+// the segment with quoted text masked, so the in-place flag may come after
+// other options (`sed -E -i`, `sed -e '…' -i`, `perl -p -i`) but a commit
+// message that mentions sed does not count.
+const IN_PLACE = /\b(?:g?sed|perl|ruby)(?:\s+[^\s|;&]+)*?\s+(?:-(?![MmIdCx])[A-Za-z]*i\S*|--in-place\S*)(?=\s|$)|\bg?awk(?:\s+[^\s|;&]+)*?\s+(?:-i\s*inplace|--include[=\s]inplace)\b/;
+// Commands that apply a unified diff; their targets are the diff's file headers.
+const PATCH_COMMAND = /^\s*(?:sudo\s+)?(?:git\s+(?:-C\s+\S+\s+)?(?:apply|am)\b|patch\b)/;
 // A heredoc fed to one of these runs its body as code; anything else (`cat`,
 // `tee`, a bare redirection) receives the body as the data it writes.
 const INTERPRETER = /^(?:[\w.\\/-]*[\\/])?(python[\d.]*|node|deno|bun|bash|sh|zsh|ksh|dash|pwsh|powershell|perl|ruby|php|osascript|psql|mysql|sqlite3)(?:\.exe)?$/i;
@@ -333,16 +341,77 @@ function codeOnly(text, regions) {
   return code;
 }
 
-function shellTargets(text, onUnresolved) {
+// Quoted text that is not a write target is masked with `_`, so a `>` or a
+// `sed -i` inside a commit message or an echoed sentence is not read as a
+// write. A quoted string right after a redirection, `tee`, a PowerShell
+// write cmdlet or as an argument of a copy or move command stays readable.
+export function maskQuoted(segment) {
+  const KEEP = /(?:>{1,2}|\b(?:tee(?:\s+-a)?|Set-Content|Add-Content|Out-File)|-(?:Path|FilePath|LiteralPath))\s*$/;
+  const copy = /^\s*(?:sudo\s+)?(?:\S*\/)?(?:cp|mv|install|Copy-Item|Move-Item)\b/.test(segment);
+  let out = '';
+  for (let i = 0; i < segment.length; i++) {
+    const char = segment[i];
+    if ((char === '"' || char === '\'') && segment[i - 1] !== '\\') {
+      const end = segment.indexOf(char, i + 1);
+      if (end < 0) return out + segment.slice(i);
+      const keep = copy || KEEP.test(out);
+      out += keep ? segment.slice(i, end + 1) : `${char}${'_'.repeat(end - i - 1)}${char}`;
+      i = end;
+    } else out += char;
+  }
+  return out;
+}
+
+/** Files named in unified-diff headers, with the lines each one adds. */
+export function diffEdits(text) {
+  const edits = [];
+  let current = null;
+  for (const line of text.split(/\r?\n/)) {
+    const header = /^(?:\+\+\+ |diff --git \S+ )(?:"?[ab]\/)?([^\s"]+)/.exec(line);
+    if (header) {
+      if (header[1] === '/dev/null' || header[1] === 'dev/null') continue;
+      current = edits.find(edit => edit.path === header[1]);
+      if (!current) edits.push(current = { path: header[1], content: '' });
+    } else if (current && line.startsWith('+') && !line.startsWith('+++')) current.content += `${line.slice(1)}\n`;
+  }
+  return edits;
+}
+
+// The diff a patch command reads: `patch < file`, `patch -i file`, `git apply file…`;
+// null for a check that writes nothing.
+function patchFiles(segment) {
+  const masked = maskQuoted(segment);
+  if (/\bgit\b[\s\S]*\bapply\b[\s\S]*\s--(?:check|stat|numstat|summary)\b/.test(masked)
+    && !/\s--apply\b/.test(masked)) return null;
+  const files = [...segment.matchAll(/(?:(?<!<)<(?!<)|\s-i|--input=)\s*["']?([^\s"'<>|;&]+)/g)].map(match => match[1]);
+  const git = /\bgit\s+(?:-C\s+\S+\s+)?(?:apply|am)\b(.*)$/.exec(segment);
+  if (git) {
+    for (const arg of git[1].split(/\s+/)) {
+      const clean = arg.replace(/^["']|["']$/g, '');
+      if (clean && !clean.startsWith('-') && !clean.startsWith('<')) files.push(clean);
+    }
+  }
+  return [...new Set(files)];
+}
+
+function shellTargets(text, onUnresolved, readFile = () => null) {
   const tokens = target => resolveToken(text, target);
   const targets = [...(scriptTargets(text, onUnresolved) || [])];
   for (const segment of segments(text)) {
-    if (IN_PLACE.test(segment)) {
+    const masked = maskQuoted(segment);
+    if (IN_PLACE.test(masked)) {
       targets.push(...fileTokens(segment));
       for (const match of segment.matchAll(/\$\{?[A-Za-z_]\w*\}?/g)) targets.push(...tokens(match[0]));
     }
-    for (const pattern of WRITE_TARGET) for (const match of segment.matchAll(pattern)) targets.push(...tokens(match[1]));
-    const copy = /\b(?:cp|mv|Copy-Item|Move-Item)\s+.*\s["']?([^\s"']+)["']?\s*$/.exec(segment);
+    if (PATCH_COMMAND.test(masked)) {
+      const files = patchFiles(segment);
+      const diffs = (files || []).map(file => readFile(file));
+      for (const diff of diffs) if (diff) targets.push(...diffEdits(diff).map(edit => edit.path));
+      // A heredoc body is read as the diff by extractEdits.
+      if (files && !/<</.test(masked) && (!files.length || diffs.some(diff => diff == null))) onUnresolved();
+    }
+    for (const pattern of WRITE_TARGET) for (const match of masked.matchAll(pattern)) targets.push(...tokens(match[1]));
+    const copy = /\b(?:cp|mv|install|Copy-Item|Move-Item)\s+.*\s["']?([^\s"']+)["']?\s*$/.exec(masked);
     if (copy) targets.push(...tokens(copy[1]));
   }
   return targets;
@@ -393,6 +462,13 @@ export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {}
   };
   const keep = edits => edits.map(edit => ({ ...edit, path: resolvePath(edit.path) }))
     .filter(edit => !isScratch(edit.path));
+  // A diff file that a patch command is about to apply; large or missing files stay unresolved.
+  const readDiff = file => {
+    try {
+      const resolved = resolvePath(file);
+      return fs.statSync(resolved).size <= 4 * 1024 * 1024 ? fs.readFileSync(resolved, 'utf8') : null;
+    } catch { return null; }
+  };
   const file = input.file_path || input.notebook_path;
   if (file && /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(toolName || '')) {
     const content = [input.new_string, input.content, input.new_source, ...(input.edits || []).map(edit => edit.new_string)]
@@ -419,10 +495,14 @@ export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {}
     }
     const regions = dataRegions(text);
     for (const region of regions.filter(region => !region.code)) {
+      if (region.head !== undefined && PATCH_COMMAND.test(maskQuoted(region.head.trim()))) {
+        for (const edit of diffEdits(region.body)) add(edit.path, edit.content);
+        continue;
+      }
       const target = dataTarget(text, region);
       if (target) add(posix(target.replace(/\\\\/g, '\\')), region.body);
     }
-    for (const token of shellTargets(codeOnly(text, regions), onUnresolved)) add(posix(token.replace(/\\\\/g, '\\')));
+    for (const token of shellTargets(codeOnly(text, regions), onUnresolved, readDiff)) add(posix(token.replace(/\\\\/g, '\\')));
   }
   return keep(edits);
 }
@@ -465,8 +545,11 @@ export function skillLoads(toolName, toolInput) {
   const input = objectInput(toolInput);
   const found = new Set();
   if (toolName === 'Skill' && typeof input.skill === 'string') {
+    // Qualified with this plugin's name, or bare where the host resolves the
+    // short name; another plugin's skill of the same name never counts.
     const name = input.skill.replace(/^\//, '');
-    if (name.startsWith(`${PLUGIN}:`) && SKILL_NAMES.includes(name.split(':')[1])) found.add(name.split(':')[1]);
+    const short = name.includes(':') ? (name.startsWith(`${PLUGIN}:`) ? name.slice(PLUGIN.length + 1) : null) : name;
+    if (SKILL_NAMES.includes(short)) found.add(short);
   }
   const reads = toolName === 'Read' ? [input.file_path || ''] : readCommands(toolName, toolInput)
     .flatMap(command => segments(codeOnly(command, dataRegions(command))))
@@ -662,7 +745,8 @@ function transcripts(input) {
     try {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: Boolean(codex) })) {
         if (entry.isFile() && entry.name.startsWith('rollout-') && entry.name.endsWith(`-${input.agent_id}.jsonl`)) {
-          files.push(path.join(entry.parentPath, entry.name));
+          // `parentPath` arrived in Node 20.12/21.4; `path` is its older name.
+          files.push(path.join(entry.parentPath ?? entry.path ?? dir, entry.name));
         }
       }
     } catch { /* transcript directory unavailable */ }
@@ -698,6 +782,8 @@ function main() {
     return found;
   };
   const result = decide(input, state, { findLoaded });
+  // Most shell calls write nothing the check covers: leave state and audit untouched.
+  if (!result.targets.length && !result.block && !result.context) return 0;
   fs.writeFileSync(file, JSON.stringify(result.state));
   // No source, command text or transcript contents in the audit trail.
   try {

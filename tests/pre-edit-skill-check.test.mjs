@@ -431,3 +431,86 @@ test('patch headers gate moves and deletions without treating added text as head
   const patch = '*** Begin Patch\n*** Update File: notes.md\n*** Move to: notes2.md\n@@\n+*** Update File: Mention.java\n*** End Patch';
   assert.deepEqual(extractEdits('apply_patch', patch).map(item => item.path), ['notes.md', 'notes2.md']);
 });
+
+test('in-place edits are found wherever the flag sits, and only in code', () => {
+  const paths = command => extractEdits('Bash', { command }).map(edit => edit.path);
+  const java = 'src/main/java/a/Foo.java';
+  for (const form of [`sed -E -i 's/a/b/' ${java}`, `sed -e 's/a/b/' -i ${java}`, `sed -i.bak 's/a/b/' ${java}`,
+    `perl -p -i -e 's/a/b/' ${java}`, `perl -pi -e 's/a/b/' ${java}`, `awk -i inplace '{print}' ${java}`,
+    `find src -name '*.java' -exec sed -i 's/a/b/' ${java} \;`]) {
+    assert.deepEqual(paths(form), [java], form);
+  }
+  for (const read of [`sed -n '1,5p' ${java}`, `perl -MList::Util -ne 'print' ${java}`, `awk '{print}' ${java}`,
+    `git commit -m "run sed -i on ${java}"`]) {
+    assert.deepEqual(paths(read), [], read);
+  }
+});
+
+test('a > inside quotes is text, not a redirection; quoted targets still count', () => {
+  const paths = command => extractEdits('Bash', { command }).map(edit => edit.path);
+  assert.deepEqual(paths('echo "see > Foo.java"'), []);
+  assert.deepEqual(paths('git commit -m "move logic > src/main/java/a/UserService.java"'), []);
+  assert.deepEqual(paths("git commit -m 'tee src/main/java/a/A.java'"), []);
+  assert.deepEqual(paths('echo x > "src/main/java/a/A.java"'), ['src/main/java/a/A.java']);
+  assert.deepEqual(paths('echo x | tee -a "src/main/java/a/A.java"'), ['src/main/java/a/A.java']);
+  assert.deepEqual(paths('cp /x/B.java "src/main/java/a/B.java"'), ['src/main/java/a/B.java']);
+});
+
+test('diffs applied with git apply or patch gate the files in their headers', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-diff-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const diff = 'diff --git a/src/test/java/a/FooTest.java b/src/test/java/a/FooTest.java\n--- a/src/test/java/a/FooTest.java\n'
+    + '+++ b/src/test/java/a/FooTest.java\n@@ -1 +1 @@\n-x\n+@Transactional y\n';
+  fs.writeFileSync(path.join(dir, 'fix.diff'), diff);
+  const run = command => {
+    let unresolved = false;
+    const edits = extractEdits('Bash', { command }, { cwd: '/repo', onUnresolved: () => { unresolved = true; } });
+    return { paths: edits.map(edit => path.relative('/repo', edit.path).replace(/\\/g, '/')), unresolved };
+  };
+  const project = path.join(dir, 'fix.diff');
+  for (const command of [`git apply ${project}`, `git apply --3way "${project}"`, `patch -p1 < ${project}`, `patch -p1 -i ${project}`]) {
+    assert.deepEqual(run(command), { paths: ['src/test/java/a/FooTest.java'], unresolved: false }, command);
+  }
+  assert.deepEqual(run(`git apply <<'EOF'\n${diff}EOF`), { paths: ['src/test/java/a/FooTest.java'], unresolved: false });
+  assert.deepEqual(run(`git apply --check ${project}`), { paths: [], unresolved: false });
+  assert.deepEqual(run(`git apply ${path.join(dir, 'missing.diff')}`), { paths: [], unresolved: true });
+  const result = decide({ tool_name: 'Bash', cwd: '/repo', tool_input: { command: `git apply <<'EOF'\n${diff}EOF` } }, {});
+  assert.match(result.block, /java-testing/);
+  assert.match(result.context, /spring-boot-engineering/);
+});
+
+test('project layout under a temp or scratch directory is still checked', () => {
+  assert.equal(isScratch('/repo/src/main/java/com/acme/temp/Foo.java'), false);
+  assert.equal(isScratch('/work/tmp/proj/src/main/java/Foo.java'), false);
+  assert.equal(isScratch('/tmp/checkout/db/migration/V1__init.sql', ['/tmp/']), false);
+  assert.equal(isScratch('/tmp/probe/Probe.java', ['/tmp/']), true);
+  assert.equal(isScratch('C:/repo/.scratch/probe/Probe.java'), true);
+  assert.match(decide(edit('/repo/src/main/java/com/acme/tmp/Foo.java'), {}).block, /use-modern-java/);
+});
+
+test('a bare skill name counts as this plugin\'s skill; another plugin\'s never does', () => {
+  assert.deepEqual(skillLoads('Skill', { skill: 'use-modern-java' }), ['use-modern-java']);
+  assert.deepEqual(skillLoads('Skill', { skill: '/java-testing' }), ['java-testing']);
+  assert.deepEqual(skillLoads('Skill', { skill: 'another-plugin:java-testing' }), []);
+  assert.deepEqual(skillLoads('Skill', { skill: 'not-a-plugin-skill' }), []);
+});
+
+test('shell calls with no covered target leave no state or audit behind', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-quiet-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const run = command => spawnSync(process.execPath, [HOOK], { encoding: 'utf8',
+    input: JSON.stringify({ session_id: 'q', tool_name: 'Bash', cwd: '/repo', tool_input: { command } }),
+    env: { ...process.env, PLUGIN_DATA: dir, CLAUDE_PLUGIN_DATA: '' } });
+  for (const command of ['ls', 'git status', 'mvn -q test']) assert.equal(run(command).stdout, '');
+  assert.deepEqual(fs.readdirSync(dir), []);
+  assert.match(JSON.parse(run("sed -i 's/a/b/' src/main/java/A.java").stdout).hookSpecificOutput.permissionDecision, /deny/);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['q.audit.jsonl', 'q.json']);
+});
+
+test('the Claude Code matcher leaves Skill calls alone', () => {
+  const { hooks: { PreToolUse: [entry] } } = JSON.parse(fs.readFileSync(path.join(ROOT,
+    'plugins/java-engineering-skills/hooks/hooks.json'), 'utf8'));
+  const matches = tool => new RegExp(`^(?:${entry.matcher})$`).test(tool);
+  assert.ok(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash', 'PowerShell'].every(matches));
+  assert.equal(matches('Skill'), false);
+});
