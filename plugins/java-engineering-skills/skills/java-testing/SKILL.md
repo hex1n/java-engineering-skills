@@ -1,6 +1,6 @@
 ---
 name: java-testing
-description: Design, implement, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, Testcontainers, asserting committed state from a test, asynchronous verification, or unreliable backend tests.
+description: Design, implement, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, Testcontainers, asserting committed state from a test, asynchronous verification, or unreliable backend tests, including asks phrased as 单测, 补测试, 测试跑不起来, or 用例没执行.
 ---
 
 # Java Testing

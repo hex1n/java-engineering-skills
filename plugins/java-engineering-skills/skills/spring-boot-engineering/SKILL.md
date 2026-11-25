@@ -1,6 +1,6 @@
 ---
 name: spring-boot-engineering
-description: Explain, design, review, diagnose, or implement behavior that depends on Spring bean wiring, configuration, proxies, lifecycle, or the web stack. Covers Spring Boot version compatibility and tests of framework behavior.
+description: Explain, design, review, diagnose, or implement behavior that depends on Spring bean wiring, configuration, proxies, lifecycle, or the web stack. Covers Spring Boot version compatibility and tests of framework behavior, including asks phrased as 事务不生效, 循环依赖, Bean 注入失败, 配置不生效, or Spring Boot 升级.
 ---
 
 # Spring Boot Engineering

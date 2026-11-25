@@ -1,6 +1,6 @@
 ---
 name: database-transactions
-description: Design or repair MySQL/InnoDB or OceanBase MySQL-mode schemas, indexes, SQL, and transactions in Java services. Use for table design, slow SQL and execution plans, lost updates, idempotency enforced by a unique key in one transaction, ORM persistence, or database migrations.
+description: Design or repair MySQL/InnoDB or OceanBase MySQL-mode schemas, indexes, SQL, and transactions in Java services. Use for table design, slow SQL and execution plans, lost updates, idempotency enforced by a unique key in one transaction, ORM persistence, or database migrations, including asks phrased as 慢 SQL, 死锁, 索引优化, 分页慢, 事务隔离, MyBatis, or 建表.
 ---
 
 # MySQL Design and Transactions

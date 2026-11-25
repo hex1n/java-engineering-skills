@@ -1,6 +1,6 @@
 ---
 name: java-api-security
-description: Design, implement, or review Java service API contracts and access controls. Use for HTTP/RPC compatibility, authentication, object and tenant authorization, idempotency-key request contracts, or untrusted request handling.
+description: Design, implement, or review Java service API contracts and access controls. Use for HTTP/RPC compatibility, authentication, object and tenant authorization, idempotency-key request contracts, or untrusted request handling, such as Spring Security, JWT, or IDOR checks, including asks phrased as 越权, 鉴权, 权限校验, 接口兼容, or 防重复提交.
 ---
 
 # Java API and Security

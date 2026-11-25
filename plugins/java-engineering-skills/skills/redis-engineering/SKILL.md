@@ -1,6 +1,6 @@
 ---
 name: redis-engineering
-description: Redis caching, TTL semantics, atomic scripts, and leases in backend services. Use for cache consistency, miss storms, TTL lost on write, or lease ownership under expiry and failover.
+description: Redis caching, TTL semantics, atomic scripts, and distributed locks (leases, Redisson, SET NX) in backend services. Use for cache consistency, miss storms, TTL lost on write, or lock ownership under expiry and failover, including asks phrased as 缓存一致性, 缓存击穿, 缓存雪崩, or 分布式锁.
 ---
 
 # Redis Engineering

@@ -1,6 +1,6 @@
 ---
 name: java-concurrency
-description: In-process Java concurrency, shared state, JVM locks, executors, CompletableFuture, and cancellation. Use for race conditions, deadlocks, or thread-pool saturation inside one JVM; row locks belong to database-transactions and Redis leases to redis-engineering.
+description: In-process Java concurrency, shared state, JVM locks, executors, CompletableFuture, and cancellation. Use for race conditions, deadlocks, or thread-pool saturation inside one JVM; row locks belong to database-transactions and Redis leases to redis-engineering. Includes asks phrased as 线程安全, 并发问题, 死锁, or 线程池打满.
 ---
 
 # Java Concurrency

@@ -1,6 +1,6 @@
 ---
 name: messaging-reliability
-description: Outbox, inbox, idempotent consumers, retries, dead letters, and ordering for Kafka, RabbitMQ, RocketMQ, or equivalent brokers in Java services. Use for duplicate or lost messages, acknowledgement and offset semantics, or database-to-broker delivery.
+description: Outbox, inbox, idempotent consumers, retries, dead letters, and ordering for Kafka, RabbitMQ, RocketMQ, or equivalent brokers in Java services. Use for duplicate or lost messages, acknowledgement and offset semantics, or database-to-broker delivery, including asks phrased as 消息重复, 消息丢失, 重复消费, 消息顺序, or 死信.
 ---
 
 # Messaging Reliability

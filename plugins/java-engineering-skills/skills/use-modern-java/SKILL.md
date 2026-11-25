@@ -1,6 +1,6 @@
 ---
 name: use-modern-java
-description: Version-compatible Java 8–21 language and standard-library idioms. Use when writing or modernizing Java code, or when a change must follow the module's compiler release rather than the developer's JDK.
+description: Version-compatible Java 8–21 language and standard-library idioms. Use when writing or modernizing Java code, or when a change must follow the module's compiler release rather than the developer's JDK, including asks phrased as 升级 Java 版本, 用新语法, or 改成 Stream.
 ---
 
 # Use Modern Java
