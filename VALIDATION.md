@@ -1,5 +1,74 @@
 # Validation record
 
+## Unreleased — OceanBase 4.2.1 DECIMAL widening measured on a real instance — 2026-11-26
+
+Changed:
+
+- `skills/database-transactions/OCEANBASE.md`, DDL section: the earlier text
+  said a `DECIMAL` precision-and-scale widening was unconfirmed and to plan
+  for offline. It now states the measured result: on OceanBase CE 4.2.1.10, a
+  `DECIMAL` change that keeps or raises both the scale and the integer digits
+  is online, also when the column is indexed, in a unique key, the primary
+  key or the partition key; lowering the scale or precision, or raising the
+  scale alone, rebuilds the table. The column-type page's "referenced by an
+  index or key makes it offline" rule is kept as documented with a note that
+  it did not hold for these widenings or for lengthening an indexed
+  `VARCHAR`. It adds that a concurrent single-row write waited for the whole
+  offline DDL on 4.2.1.10. Other deployments are told to rehearse and check
+  `table_id`.
+- `evals/oceanbase-job-claim{,-zh}/graders/timeouts-and-ddl.md`: the facts
+  paragraph adds the measurement; pass condition 2 accepts "expected online
+  on 4.2.1" alongside "offline" and "must be confirmed", still requires a
+  same-version rehearsal, and asks for what to do if the rehearsal shows a
+  rebuild instead of a full offline plan. Fail clauses unchanged.
+
+Executed, on `oceanbase/oceanbase-ce:4.2.1-lts` (`OB_VERSION()` 4.2.1.10) in
+docker, `MODE=mini`, one observer, 4 cores and 15 GB host. The sandbox's hard
+`nproc` limit (64271) is below obd's 120000, so the obd start check for it was
+turned from critical into an alert; nothing in the observer was changed. Each
+statement ran on a 1,000-row and a 1,048,576-row copy of the same table, all
+created on that version. Signals: `table_id` in `oceanbase.__all_table` before
+and after; elapsed time at both sizes; the `ddl_type` rootservice.log records
+for the statement; and, for three statements, single-row writes from a second
+session every 0.1 s.
+
+| ALTER | `table_id` | time 1k / 1M rows | `ddl_type` |
+|---|---|---|---|
+| `varchar(32)`→`varchar(64)`, `int`→`bigint` | same | 0.04–0.08 s / 0.06–0.07 s | 10001 |
+| `decimal(10,2)`→`(16,2)`, `(8,2)`→`(9,2)`, `(8,2)`→`(10,2)`, `(16,2)`→`(18,2)`, `(19,2)`, `(38,2)`, `(40,2)` | same | 0.04–0.05 s / 0.05–0.07 s | 10001 |
+| `decimal(16,2)`→`(20,4)`, `(10,2)`→`(16,4)`, `(16,2)`→`(18,4)` | same | 0.04–0.05 s / 0.05 s | 10001 |
+| `decimal(16,2)`→`(20,4)` or `(19,2)` on an indexed column; `(20,4)` in a unique key, as the primary key, as the KEY partitioning column | same (index table's own id also same) | 0.04–0.06 s / 0.04–0.06 s | 10001 |
+| `decimal(16,2)`→`(16,4)`, `(14,2)` with values that do not fit | rebuilt, then ERROR 1264 | 0.5 s / 3.5–4.0 s | 1001 |
+| `decimal(16,2)`→`(14,2)` with values that fit, `(16,2)`→`(16,1)` | new | 0.36–0.47 s / 6.4 s | 1001 |
+| `decimal(16,2)`→`(20,4)` together with `drop column` | new | 0.46 s / 4.1 s | 1010 |
+| `drop column` | new | 0.38 s / 2.2 s | 1006 |
+| the `oceanbase-mixed-alter` statement (AFTER add, end add, drop) | new | — / 2.2 s | 1009 |
+
+Concurrent writes on 1,048,576 rows: during `decimal(16,2)`→`(16,1)` (8.35 s)
+the UPDATE issued at its start returned after 8.33 s and no other statement
+ran meanwhile; during `decimal(16,2)`→`(20,4)` the slowest of 30 UPDATEs took
+0.12 s; during the mixed statement the INSERT issued at its start waited
+2.12 s, the whole statement. After the indexed widening, a lookup by the new
+value used the index and returned all rows.
+
+Eval, Claude Code 2.1.332, sonnet judge:
+
+- `oceanbase-job-claim` English and Chinese, plugin arm only, 3 runs each
+  ($1.46): all three graders 6/6; every run read OCEANBASE.md; all six
+  answers called the widening expected-online, asked for a rehearsal that
+  checks `table_id`, said what to do on a rebuild, and limited the
+  measurement to its single-node setting.
+- Grader replay, 3 runs × 3 votes ($0.73): a hand-written answer that calls
+  the widening online and checks `table_id` on a copy first, and a round-5
+  plugin answer that treats it as offline, both pass 9/9; the round-5
+  hand-written answer that runs it directly in production with no rehearsal
+  fails 9/9.
+
+Not verified: a distributed (multi-zone) cluster; 4.2.1 builds other than
+.10 and other 4.x versions; tables created before an upgrade to 4.2.1; a
+foreign-key column; the without-plugin arm under the revised grader, so the
+case's DDL discrimination is not re-measured.
+
 ## Unreleased — Java 25 default async executor in java-concurrency — 2026-11-26
 
 Changed:
