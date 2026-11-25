@@ -16,7 +16,11 @@ Require exactly one affected row for success, and record which count the stack
 returns before relying on it: MySQL reports changed rows by default, while
 Connector/J sets `CLIENT_FOUND_ROWS` unless `useAffectedRows=true` and so
 reports matched rows, and `INSERT … ON DUPLICATE KEY UPDATE` reports 1, 2, or 0
-only when that flag is unset. A conditional update that writes the same values
+only when that flag is unset. Under the Connector/J default it reports 1 both
+for a new row and for a duplicate whose values did not change, so the count
+cannot tell an insert from a repeat; set `useAffectedRows=true`, or use a plain
+`INSERT` and treat the duplicate-key error as the repeat
+([INSERT … ON DUPLICATE KEY UPDATE](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)). A conditional update that writes the same values
 reports zero changed rows without being a conflict. Validate `quantity > 0`; a
 negative value would increase stock. This protects the local stock predicate,
 not exactly-once requests: repeated reservations need a unique operation

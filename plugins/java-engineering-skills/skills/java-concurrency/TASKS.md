@@ -34,7 +34,12 @@ Sources: [ThreadPoolExecutor](https://docs.oracle.com/javase/8/docs/api/java/uti
 ## CompletableFuture and cancellation
 
 Non-async continuation stages may run on the completing thread. Async stages
-without an explicit executor normally use the common pool. Assign blocking or
+without an explicit executor normally use the common pool. When the common
+pool's parallelism is below 2, as on a one- or two-CPU container, Java 8–24
+run each such stage on a new thread instead; Java 25 uses
+`ForkJoinPool.asyncCommonPool()`
+([JDK-8363552](https://bugs.openjdk.org/browse/JDK-8363552)). Pass an owned
+executor rather than depend on either. Assign blocking or
 context-sensitive work to an appropriate owned executor; `ThreadLocal`, logging,
 security, and transaction context do not follow arbitrary task submission by
 assumption.

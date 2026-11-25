@@ -100,9 +100,11 @@ reason to change global JVM settings or assume the same flags work on Java 8.
 A plain `@Mock` does not replace a Spring context bean. Use the actual stack's
 supported bean-override mechanism: Boot 3.3 and earlier use
 `@MockBean`/`@SpyBean`; Framework 6.2 introduces `@MockitoBean`/`@MockitoSpyBean`,
-and Boot 3.4 deprecates the Boot-owned annotations in their favor. Keep the service/proxy under test real and replace
+Boot 3.4 deprecates the Boot-owned annotations in their favor, and Boot 4.0
+removes them, so `@MockBean` code no longer compiles there. Keep the service/proxy under test real and replace
 only its intended collaborators; verify bean names/qualifiers and whether an
 override creates a missing bean or requires an existing one. Mocking the bean
 that owns `@Transactional` removes the transaction behavior being tested.
 [Spring bean overrides](https://docs.spring.io/spring-framework/reference/6.2/testing/annotations/integration-spring/annotation-mockitobean.html),
-[Boot 3.4 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.4-Release-Notes).
+[Boot 3.4 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.4-Release-Notes),
+[Boot 4.0 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide).

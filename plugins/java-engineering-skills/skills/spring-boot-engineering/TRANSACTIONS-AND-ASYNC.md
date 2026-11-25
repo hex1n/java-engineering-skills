@@ -71,13 +71,26 @@ without a further commit. For a database write that must commit from this
 callback, use an actually intercepted `REQUIRES_NEW` boundary or explicitly
 configured equivalent, accounting for its connection/lock cost. This still
 does not make the callback durable or let its failure undo the original commit.
+From Framework 6.1, a `@Transactional` annotation on a
+`@TransactionalEventListener` method must declare `REQUIRES_NEW` or
+`NOT_SUPPORTED`, or the context fails to start. An event published with no
+transaction in progress does not reach the listener unless it sets
+`fallbackExecution = true`.
 [Spring 5.3 after-commit resource semantics](https://docs.spring.io/spring-framework/docs/5.3.31/javadoc-api/org/springframework/transaction/support/TransactionSynchronization.html#afterCommit--).
 
 `@Async` follows the same proxy rule.
 Thread-bound imperative transactions do not propagate to a new worker thread.
-Define the executor, queue/rejection behavior, failure observation, and required
-context propagation. Reactive transaction context follows different mechanisms
+Find the executor that actually runs the method. When the application defines
+no `Executor` bean, Boot (2.1 and later) auto-configures a
+`ThreadPoolTaskExecutor` with 8 core threads and an unbounded queue, so
+excess work queues rather than adding threads or being rejected; with
+`spring.threads.virtual.enabled` (Boot 3.2+, Java 21) it is a
+`SimpleAsyncTaskExecutor` with no pool limit. An application `Executor` bean
+or `AsyncConfigurer` replaces it; confirm the exact back-off condition for the
+Boot line in use. Define the executor, queue/rejection behavior, failure
+observation, and required context propagation. Reactive transaction context follows different mechanisms
 and needs the chosen reactive transaction manager/pipeline.
 
 Sources: [Transaction-bound events](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/event.html),
-[Spring task execution](https://docs.spring.io/spring-framework/reference/6.2/integration/scheduling.html).
+[Spring task execution](https://docs.spring.io/spring-framework/reference/6.2/integration/scheduling.html),
+[Boot task execution](https://docs.spring.io/spring-boot/3.5/reference/features/task-execution-and-scheduling.html).
