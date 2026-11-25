@@ -3,6 +3,11 @@ type: llm
 focus: last_message
 ---
 
-The bulk update is split into bounded batches because of the default 10-second statement timeout (ob_query_timeout), and the answer says the connection must be rolled back after a timeout before reuse. The decimal(16,2) to decimal(20,4) change is treated as an offline (table-rebuilding) DDL on OceanBase 4.2 that needs a rehearsal and a write-outage plan, not as an instant or in-place MySQL change.
+Facts of the task, which you cannot see: the database is OceanBase 4.2.1 in MySQL mode with default session variables; the nightly job changes `status` on about two million rows of a 30-million-row table; the next release widens `trade_history.amount` from decimal(16,2) to decimal(20,4). Nothing says whether `amount` is indexed. The OceanBase 4.2.1 documentation lists "changing a column type" as offline (table-rebuilding) DDL but also lists "increasing a column type's length or precision" as online and metadata-only, and it does not say which of the two a DECIMAL precision-and-scale widening is.
 
-Pass when both hold: the two-million-row update is batched with an explicit reference to the statement timeout, and the column type change is planned as offline DDL with a rehearsal. Fail if the update is proposed as one statement without addressing the timeout, or if the type change is described using InnoDB INSTANT/INPLACE reasoning.
+Pass when both hold:
+
+1. The two-million-row update is split into bounded batches with an explicit reference to the statement timeout (ob_query_timeout, 10 seconds by default). Saying that a connection that hit the timeout must be rolled back or discarded before reuse is expected but not required.
+2. The DECIMAL widening is not assumed to be instant or safe on a live table without a check: the plan either treats it as offline DDL, or states that its online/offline classification on 4.2.1 must be confirmed on the target version. Either way it calls for a rehearsal on a copy of the same version and schema, and it has a plan for the offline case (a write-outage window, or an expand-backfill-switch migration that avoids a long table rebuild under live writes).
+
+Fail if the update is proposed as one statement without addressing the timeout, if the type change is described using InnoDB INSTANT/INPLACE reasoning, or if the answer asserts that the widening is online or metadata-only and plans to run it directly on the live table without a rehearsal, or if it states that `ob_trx_timeout` defaults to 100 seconds on this version (100 seconds was the default before 4.0; from 4.0 it is 24 hours). Not mentioning `ob_trx_timeout` is fine. Extra checks or alternatives beyond these do not count against the answer.
