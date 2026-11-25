@@ -1,5 +1,88 @@
 # Validation record
 
+## Unreleased — spring-boot transaction routing and the spring-wiring judge — 2026-11-25
+
+spring-boot-engineering loaded in only some English runs of
+`transaction-not-rolled-back`: 17 of 27 across this and the two earlier
+records. Every miss was a one-turn answer with no tool call. The description
+named the symptom only in Chinese (事务不生效).
+
+Changes:
+
+- spring-boot-engineering's description names an annotation that does not
+  take effect and a transaction that leaves writes committed after an
+  exception, with the usual causes (self-invocation, non-public methods,
+  checked exceptions and rollbackFor, exceptions caught inside the method),
+  and adds 事务不回滚 and @Transactional 失效. The rollback bullet says rollback
+  rules apply only to an exception that leaves the method.
+- New `regression` case `transaction-swallowed-exception` (English and
+  Chinese): rollbackFor is set, the exception is caught inside the method,
+  and the order commits.
+- The spring-wiring grader states the task facts and lists what passes and
+  what fails (below).
+
+Run: Claude Code 2.1.332, sonnet judge, README read grant. "Before" is the
+unchanged skill with the plugin only (3 + 6 runs); "after" ran with-without
+(6 runs), plus 6 more English runs with the plugin.
+
+| Case | Loaded before → after | Without plugin (after) |
+|---|---|---|
+| transaction-not-rolled-back | 6/9 → 11/12 | 6/6 pass |
+| transaction-not-rolled-back-zh | 9/9 → 6/6 | 6/6 pass |
+| transaction-swallowed-exception | 9/9 → 6/6 | 6/6 pass |
+| transaction-swallowed-exception-zh | 9/9 → 6/6 | 6/6 pass |
+
+The remaining English miss was again a one-turn answer, and its answer still
+passed. database-transactions loaded alongside in 8 of 18 swallowed-exception
+runs before and none after; java-testing loaded alongside once after.
+TRANSACTIONS-AND-ASYNC.md was read in 2 of 36 runs before and 1 of 30 after.
+In the Boot upgrade, JUnit 4, four OceanBase cases (auto-increment, isolation,
+and the job claim in English and Chinese), the modern-Java negatives and the
+Python negative, run with the plugin three times each before and after,
+spring-boot-engineering loaded only in the Boot upgrade, and no case loaded a
+skill it had not loaded before (use-modern-java loaded in 3 of 3 English
+modern-Java runs after, 1 of 3 before). `oceanbase-job-claim` failed
+`timeouts-and-ddl` in 1 of 3 English and 1 of 3 Chinese runs after (2 and 3
+before), and `engine-recognized` once before and once after; this change does
+not touch that skill.
+
+The first swallowed-exception grader failed three correct answers, which
+listed other causes as assumptions to check or used setRollbackOnly without a
+caveat the grader expected. It now gives the task facts and a
+numbered list. Replayed to the eval judge (the agent echoes a stored answer,
+tools off), those three and five earlier passes pass 3:0, and two wrong answers
+(only rollbackFor changed; REQUIRES_NEW with the catch kept) fail 3:0.
+
+### spring-wiring judge
+
+`spring-wiring-evidence` failed about one run in four with answers that read
+correct. Replaying stored answers to the real judge reproduced the original
+votes, so the failures belonged to the answers and the grader, not to random
+votes. The judge sees only the final answer, never the task. The old grader
+failed an answer that chose a client arbitrarily, but the judge could not see
+that the facade serves the controller's audience, so answers that recommended
+publicCatalog for that reason failed. Graded one criterion at a time, three
+failing answers met every part of the long one-sentence criterion.
+
+The grader now states the task facts, numbers what a passing answer does, lists
+what fails it, and says extra checks or caveats do not fail an answer.
+
+| Grader | 28 earlier answers pass | Wrong answers fail |
+|---|---|---|
+| old | 21/28 (eval's own votes) | not run |
+| new | 28/28 (82 of 84 votes) | 3/3, each 3:0 |
+
+The wrong answers were: one @MockBean for both clients and @Primary on
+internalCatalog; waiting for the remote services and a full start for
+normalize; and missing the second StorageProperties registration. A fresh run
+with the plugin, three runs per language, passed 6 of 6 with every vote PASS;
+spring-boot-engineering loaded in 5 of 6 (the English miss was a one-turn
+answer).
+
+Not settled: only sonnet was measured as agent and judge, and Codex was not
+run. Two earlier wiring answers pass the new grader 2:1. The runs and replays
+cost about $32.
+
 ## Unreleased — messaging-reliability and use-modern-java routing — 2026-11-25
 
 The Kafka case and the plain Java 21 rewrite failed on routing, not content.

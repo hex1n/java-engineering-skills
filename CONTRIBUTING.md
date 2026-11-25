@@ -73,7 +73,10 @@ trigger or trap the change introduces. Tag a new case `discriminating` only
 after a run without the plugin answers it wrong and a run with the plugin
 answers it right; otherwise tag it `regression`. Add a `negative` case, with a
 `tool_used` grader set to `min: 0`, `max: 0`, `arm: both`, when a description
-change could make a skill fire on work outside its scope. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
+change could make a skill fire on work outside its scope. An `llm` grader's
+judge reads only the agent's final answer, not the prompt, so state in the
+grader the task facts its verdict depends on, list what a passing answer
+does and what fails it, and check that a deliberately wrong answer fails. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
 
 For changed examples, compile a complete surrounding example at the claimed
 release and test the material behavior boundary. A modern JDK's `--release`
