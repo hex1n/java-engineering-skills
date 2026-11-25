@@ -24,7 +24,8 @@ Changes:
 
 Run: Claude Code 2.1.332, sonnet judge, three runs per case, README read
 grant. "Before" loaded only the plugin; "after" ran with-without. Adjacent
-cases ran with the plugin before and after. Total $11.11.
+cases ran with the plugin before and after. Total $11.11, plus $4.70 for
+the java8 grader below.
 
 | Case | Loaded before → after | With plugin before → after | Without |
 |---|---|---|---|
@@ -41,12 +42,25 @@ as before except `transaction-not-rolled-back` (English), where
 spring-boot-engineering loaded in 6 of 9 runs before and 5 of 9 after, each
 miss a one-turn answer with no skill.
 
+`java8-release-idioms` then passed about half the time in both arms with
+nearly identical answers. The eval keeps no judge reasoning, so the 18 answers
+were re-graded with sonnet against the same rubric, one verdict per criterion,
+without the prompt (the grader's focus is the last message); this matched the
+eval's majority verdict on 14 of 17. Every answer met the code criteria. The
+failures came from the verification sentence: read without the prompt, it
+asked for a release-8 compile and an appending caller that had been run,
+while the agent has no shell and the prompt asks how they would check; and
+the judge could not tell that the module's own build carries release 8. The
+grader now says the verification is a plan, that the user's pom sets release
+8, and that a test calling `add` on the result counts as the append check. Two
+control answers, one with `Collectors.toList()` and one offering a plain JDK
+21 compile as proof, still fail 3 of 3. Rerun with-without, three runs each:
+English and Chinese 3/3 with the plugin and 3/3 without (the run above: 2/6
+with, 3/6 without).
+This case only guards against regressions; it does not separate the arms.
+
 Not settled:
 
-- `java8-release-idioms` passes about half the time in both arms with nearly
-  identical answers. The failing answers appear to test `add` on the returned list rather
-  than run an appending caller, which the grader names; the grader was not
-  changed.
 - Only sonnet-5-5 was measured; Codex routing was not run.
 
 ## Unreleased — Discriminating evals, negative cases, upgrade routing — 2026-11-25
