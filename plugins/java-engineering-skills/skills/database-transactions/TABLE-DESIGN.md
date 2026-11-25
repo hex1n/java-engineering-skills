@@ -83,7 +83,10 @@ UNIQUE KEY uk_active_business (tenant_id, business_key, active_marker)
 ```
 
 Require tenant_id and business_key to be NOT NULL, select their collation,
-and check indexed generated-column support at the exact version. On an existing
+and check indexed generated-column support at the exact version. On
+OceanBase, a local unique index on a partitioned table must include the
+partitioning columns, and adding a `STORED` marker is offline DDL in 4.2.1;
+see OCEANBASE.md. On an existing
 InnoDB table in MySQL 8.0, adding this marker as `STORED` requires a rebuild
 without concurrent DML. Adding a `VIRTUAL` column supports online algorithms
 on non-partitioned tables; partitioned tables do not support INPLACE for this

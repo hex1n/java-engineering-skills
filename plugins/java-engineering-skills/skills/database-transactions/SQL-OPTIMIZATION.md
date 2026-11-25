@@ -15,8 +15,11 @@ functions, acquire locks, or consume substantial resources. Rolling back does
 not reclaim allocated auto-increment values or undo external effects. Use an isolated representative
 environment for risky statements and bound execution.
 
-MySQL EXPLAIN ANALYZE is available from 8.0.18; its supported statements and
-output differ from earlier MySQL. For 5.7, use supported EXPLAIN output and
+MySQL EXPLAIN ANALYZE is available from 8.0.18 for `SELECT` and multi-table
+`UPDATE` and `DELETE`, and from 8.0.19 for `TABLE`; it runs the statement, so
+on a multi-table `UPDATE` or `DELETE` it changes rows unless run inside a
+transaction that is rolled back.
+[EXPLAIN](https://dev.mysql.com/doc/refman/8.0/en/explain.html). For 5.7, use supported EXPLAIN output and
 separate measured execution evidence. Inspect access path, estimated
 and actual rows/loops, filtering, and sorting with the selected version's
 format. Iterator times are averages per loop and include child work; summing

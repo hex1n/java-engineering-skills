@@ -102,10 +102,14 @@ Source: [auto-increment columns](https://www.oceanbase.com/docs/common-oceanbase
 
 Replace MySQL INSTANT/INPLACE reasoning with the target version's online and
 offline lists. In 4.2.1 these are offline: changing a column type (beyond
-lengthening `VARCHAR` and similar), adding or dropping a primary key, dropping
-a column, adding a column other than at the end, converting the charset,
-changing partitioning, adding an auto-increment column, and adding or dropping
-a stored generated column. A statement that mixes one offline change with
+lengthening `VARCHAR` and similar), adding or dropping a primary key or
+making a column the primary key, dropping a column (`VIRTUAL` ones included),
+adding a column other than at the end or reordering columns, converting the
+charset, changing partitioning rules, adding an auto-increment column or
+making a column auto-increment, and adding or dropping a stored generated
+column. Dropping or truncating a partition and truncating or dropping a table
+are offline too, waiting on active transactions; adding a partition or a
+`VIRTUAL` column is metadata-only. The official page is the full list. A statement that mixes one offline change with
 online ones runs offline. Offline DDL rebuilds the table through a hidden
 table and changes its `table_id`. The 4.3.5 documentation disallows DML while
 it runs and the 4.2.1 page does not say; plan a write outage and rehearse it.
