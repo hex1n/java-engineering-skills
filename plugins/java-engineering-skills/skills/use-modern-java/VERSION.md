@@ -75,3 +75,16 @@ automatically support another release's preview syntax. Stable-catalog rules
 remain gated by their stable version even in a project using previews.
 
 Source: [Java preview features](https://docs.oracle.com/en/java/javase/21/language/preview-language-and-vm-features.html).
+
+## Coverage boundary
+
+Use preview or incubator features only when the task names them and their
+exact release and compile/test/runtime settings are established. In Java 21,
+string templates, scoped values, structured concurrency, unnamed patterns,
+and unnamed classes/instance main methods are outside this stable catalog.
+
+Framework and library migrations (for example, Spring, persistence mappings,
+Lombok, or an HTTP client replacement) need evidence from the project's actual
+dependency versions in addition to these Java SE rules. Android API/desugaring
+support must be checked separately. For Java beyond 21, reuse covered rules
+and consult official documentation for additional features.

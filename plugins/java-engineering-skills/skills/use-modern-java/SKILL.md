@@ -5,44 +5,42 @@ description: Version-compatible Java 8–21 language and standard-library idioms
 
 # Use Modern Java
 
-Prefer clear, modern Java supported by the target module. This skill covers
+Prefer clear, modern Java the target module supports. This skill covers
 selected stable language and Java SE library features through Java 21.
 
 ## Apply the guidelines
 
-Fast path: when the change introduces no idiom from the
-[rule index](#rule-index), such as a plain bug fix or logic change, step 1
-needs only the module's effective `release`/`target`, steps 2–4 do not apply,
-and step 5 still does.
+Fast path: a change that introduces no idiom from the [rule index](#rule-index)
+(a plain bug fix or logic change) needs only the module's effective
+`release`/`target` from step 1, then step 5.
 
-1. Establish the target source set's language level, available Java SE APIs,
-   minimum runtime, and preview setting using [VERSION.md](VERSION.md).
-   Reuse established evidence until the module or build configuration changes.
+1. Establish the target source set's language level, Java SE APIs, minimum
+   runtime, and preview setting with [VERSION.md](VERSION.md). Reuse that
+   evidence until the module or build configuration changes.
 2. Select rules from the [rule index](#rule-index) whose minimum version fits
-   the target and whose trigger matches the code being changed. Earlier rules
-   still apply on newer Java releases.
-3. Read the linked rule section before applying a candidate transformation,
-   even for a short rewrite you could write from memory; for example
+   the target and whose trigger matches the changed code. Earlier rules still
+   apply on newer releases.
+3. Read the linked rule section before applying it, even for a short rewrite
+   you could write from memory: for example
    [pattern-switch](JAVA21.md#pattern-switch) before switching on a value that
    can be null, or [mutable-stream-result](JAVA8.md#mutable-stream-result)
-   before collecting a list that callers modify. Each explains the intended
-   use, behavior-sensitive exceptions, an example, and its primary source.
-4. Apply an idiom only to code the task already changes; leave untouched
-   lines alone unless the task asks for modernization. For each replacement,
-   check what it must keep (mutability, null handling, encounter order,
-   exceptions, resource ownership, concurrency, public or serialized
-   contracts) and keep the old form wherever one of these would change. List
-   the replacements and the behavior each keeps in the summary, not in code
-   comments. The Java baseline, dependencies, and untouched subsystems stay as
-   VERSION.md found them.
+   before collecting a list callers modify. Each gives the intended use,
+   behavior-sensitive exceptions, an example, and its primary source.
+4. Apply idioms only to code the task already changes, unless it asks for
+   modernization. For each replacement, check what it must keep (mutability,
+   null handling, encounter order, exceptions, resource ownership,
+   concurrency, public or serialized contracts) and keep the old form where
+   any of these would change. List replacements and what each keeps in the
+   summary, not in code comments. Leave the Java baseline, dependencies, and
+   untouched subsystems as VERSION.md found them.
 5. Verify changed code with the module's existing build and focused tests at
-   the established target. For a migration, exercise the affected contract
+   the established target; for a migration, exercise the affected contract
    boundaries from the rule details. Report the target, relevant changes, and
-   any behavior or runtime verification that remains untested.
+   any behavior or runtime verification left untested.
 
-If version evidence is unresolved, continue work that does not depend on newer
-features and identify the missing build decision before introducing them.
-Compilation on the developer's newer JDK alone does not establish compatibility.
+If version evidence is unresolved, continue work that needs no newer feature
+and name the missing build decision before introducing one. Compiling on the
+developer's newer JDK alone does not establish compatibility.
 
 ## Report
 
@@ -57,16 +55,9 @@ in it.
 
 ## Coverage boundary
 
-Use preview or incubator features only when the task names them and their
-exact release and compile/test/runtime settings are established. In Java 21,
-string templates, scoped values, structured concurrency, unnamed patterns,
-and unnamed classes/instance main methods are outside this stable catalog.
-
-Framework and library migrations (for example, Spring, persistence mappings,
-Lombok, or an HTTP client replacement) need evidence from the project's actual
-dependency versions in addition to these Java SE rules. Android API/desugaring
-support must be checked separately. For Java beyond 21, reuse covered rules
-and consult official documentation for additional features.
+Preview and incubator features, framework or library migrations, Android
+targets, and Java beyond 21 need more than this catalog: read
+[VERSION.md](VERSION.md#coverage-boundary) before using them.
 
 ## Rule index
 
