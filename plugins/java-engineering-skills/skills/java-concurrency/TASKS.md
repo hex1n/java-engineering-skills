@@ -36,9 +36,11 @@ Sources: [ThreadPoolExecutor](https://docs.oracle.com/javase/8/docs/api/java/uti
 Non-async continuation stages may run on the completing thread. Async stages
 without an explicit executor normally use the common pool. When the common
 pool's parallelism is below 2, as on a one- or two-CPU container, Java 8–24
-run each such stage on a new thread instead; Java 25 uses
-`ForkJoinPool.asyncCommonPool()`
-([JDK-8363552](https://bugs.openjdk.org/browse/JDK-8363552)). Pass an owned
+run each such stage on a new thread instead. Java 25 drops that fallback and
+always uses the common pool, raising its parallelism from 0 to 2 when needed,
+so on a two-CPU container those stages share a common pool of parallelism 1
+([JDK-8319447](https://bugs.openjdk.org/browse/JDK-8319447)); the Java 25
+`defaultExecutor()` javadoc still describes the old fallback. Pass an owned
 executor rather than depend on either. Assign blocking or
 context-sensitive work to an appropriate owned executor; `ThreadLocal`, logging,
 security, and transaction context do not follow arbitrary task submission by
@@ -60,7 +62,8 @@ collects the other tasks. Preserve causes when translating `ExecutionException`
 or `CompletionException`, and observe failures from submitted tasks.
 
 Sources: [Java 8 CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html),
-[Java 9 timeout methods](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletableFuture.html).
+[Java 9 timeout methods](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletableFuture.html),
+[Java 25 CompletableFuture source](https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/CompletableFuture.java).
 
 ## Context on reused threads
 

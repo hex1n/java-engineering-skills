@@ -1,5 +1,35 @@
 # Validation record
 
+## Unreleased — Java 25 default async executor in java-concurrency — 2026-11-26
+
+Changed:
+
+- `skills/java-concurrency/TASKS.md`: the old text said Java 25 "uses
+  `ForkJoinPool.asyncCommonPool()`" and cited JDK-8363552. That method is
+  package-private, not API, and JDK-8363552 is a SubmissionPublisher
+  javadoc fix. The text now says Java 25 drops the thread-per-task fallback
+  and always uses the common pool, raising its parallelism from 0 to 2 when
+  needed, cites JDK-8319447 and the jdk-25-ga source, and notes that the
+  Java 25 `defaultExecutor()` javadoc still describes the old fallback.
+
+Executed:
+
+- Read `CompletableFuture.java` at jdk-21-ga, jdk-24-ga and jdk-25-ga and
+  `ForkJoinPool.java` at jdk-25-ga. 21 and 24 pick
+  `ForkJoinPool.commonPool()` only when its parallelism is above 1 and
+  otherwise a `ThreadPerTaskExecutor`. 25 sets `ASYNC_POOL =
+  ForkJoinPool.asyncCommonPool()`, declared `static` with no `public`, which
+  CASes the common pool's parallelism from 0 to 2 and returns the common
+  pool.
+- Ran a probe on JDK 21 with `java.util.concurrent.ForkJoinPool.common.parallelism`
+  set to 0, 1 and 3: `defaultExecutor()` was `ThreadPerTaskExecutor` and the
+  stage ran on `Thread-0` for 0 and 1, and the common pool for 3.
+
+Not verified:
+
+- No JDK 25 binary could be downloaded here, so the Java 25 behaviour comes
+  from the jdk-25-ga source, not a run.
+
 ## Unreleased — OceanBase mixed ALTER case, English triggers for java-concurrency and java-design — 2026-11-26
 
 Changes:
