@@ -14,8 +14,13 @@ List<String> roles = List.of("reader", "writer");
 ```
 
 `Arrays.asList` permits `set` and can reflect changes to its backing array;
-`List.of` does neither. The factories reject null elements/keys/values;
-`Set.of` rejects duplicates and map factories reject duplicate keys. Set/map
+`List.of` does neither. The factories reject null elements/keys/values, and
+their collections also reject null queries: `contains(null)`, `indexOf(null)`,
+`Set.contains(null)`, and `Map.containsKey(null)`/`get(null)` throw
+`NullPointerException`, where `unmodifiableList(Arrays.asList(...))` returns
+`false` or `-1` (observed on JDK 11, 17, and 21). Check lookups that may pass
+null before replacing a wrapper. `Set.of` rejects duplicates and map
+factories reject duplicate keys. Set/map
 iteration order is unspecified. Preserve mutable, null-tolerant, ordered, or
 backed-view contracts with appropriate existing implementations. Unmodifiable
 containers do not make their elements immutable.
@@ -83,7 +88,8 @@ List<String> snapshot = List.copyOf(input);
 
 `Collections.unmodifiableList(input)` alone is a live view, so replacing it
 with `copyOf` changes whether later input mutations are visible. `copyOf`
-rejects nulls and need not allocate a distinct object. Elements are still
+rejects nulls, its result throws on `contains(null)` and `indexOf(null)` like
+`List.of`, and it need not allocate a distinct object. Elements are still
 shared. `List.copyOf` retains iteration order; set/map copies do not promise
 it. Verify aliasing, null handling, and caller mutation before replacing a
 wrapper or a defensive copy.

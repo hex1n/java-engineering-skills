@@ -21,7 +21,10 @@ virtual threads and carrier behavior. Blocking under `synchronized` can pin
 a carrier in this release; ordinary supported blocking I/O can unmount.
 Increasing carriers is not proof of fixing the contended resource. Check
 actual pinning events and the relevant code path before changing locks.
-Later JDK improvements do not establish Java 21 behavior.
+Later JDK improvements do not establish Java 21 behavior: from JDK 24
+([JEP 491](https://openjdk.org/jeps/491)) `synchronized` no longer pins and
+`jdk.tracePinnedThreads` has no effect, so on 24+ use the JFR event
+`jdk.VirtualThreadPinned` for the cases that still pin.
 [Java 21 virtual threads](https://openjdk.org/jeps/444).
 
 ## Allocation, retention, and memory limits

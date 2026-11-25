@@ -112,8 +112,9 @@ try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
 Use a thread per task rather than pooling virtual threads, and keep the
 admission control the bounded pool used to provide (a semaphore around a
 constrained downstream service). On **Java 21**, blocking while holding a
-monitor or inside certain native calls pins the carrier thread, and virtual
-threads are daemon threads. The [executor closure rule](JAVA12-20.md#executor-close)
+monitor or inside certain native calls pins the carrier thread (JDK 24's
+[JEP 491](https://openjdk.org/jeps/491) removes the `synchronized` case, which
+does not change a Java 21 runtime), and virtual threads are daemon threads. The [executor closure rule](JAVA12-20.md#executor-close)
 applies. Task lifecycle, cancellation, thread-local context, and pinning
 investigation belong to java-concurrency; verify integration with the actual
 framework/runtime before changing its executor.

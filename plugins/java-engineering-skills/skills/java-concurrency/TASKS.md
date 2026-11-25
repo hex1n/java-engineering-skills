@@ -89,7 +89,11 @@ parallelism. Use one per task instead of a virtual-thread pool, while preserving
 separate admission/queue limits and limits on database or remote-service use.
 
 On Java 21, long blocking synchronized regions and some native calls can pin a
-carrier; measure those paths before changing locks. Virtual threads are daemon
+carrier; measure those paths before changing locks. From JDK 24
+([JEP 491](https://openjdk.org/jeps/491)) blocking in `synchronized` no longer
+pins and `jdk.tracePinnedThreads` has no effect; the JFR event
+`jdk.VirtualThreadPinned` still reports the remaining cases, such as native
+code that calls back into blocking Java code. Virtual threads are daemon
 threads, so establish who waits for completion. Test cancellation and shutdown
 with the real blocking client: closing a scoped executor may still wait after
 `Future.get` times out. Structured concurrency is still a preview feature in
