@@ -25,3 +25,23 @@ jobs:
       # native commands, so an unquoted pattern reaches Node literally on Windows.
       - name: Unit tests
         run: node --test "tests/*.test.mjs"
+
+  java-examples:
+    # Compile tests/examples for each release on that release's own JDK and run
+    # them there, so every target is exercised on a matching runtime.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['8', '11', '17', '21']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Compile and run examples
+        run: node scripts/check-examples.mjs --jdk "$JAVA_HOME" --release ${{ matrix.java }}

@@ -223,6 +223,8 @@ node scripts/check-examples.mjs --jdk /path/to/jdk8 --release 8
 
 第一条命令按 Java 8、11、17、21 的目标版本分别编译，均在指定 JDK 上执行。
 这不代表已在四个版本的运行时分别完成验证；脚本会输出实际使用的版本。
+CI 的 `java-examples` 任务用 Temurin 8、11、17、21 各跑一次对应的 `--release`，
+每个目标版本都在同版本的运行时上编译并执行。
 
 ## 来源与许可
 
