@@ -65,3 +65,14 @@ scale assumptions.
 A proposed index or estimated plan is not a measured improvement; the
 comparison protocol is in [SQL-OPTIMIZATION.md](SQL-OPTIMIZATION.md) and
 [INDEX-DESIGN.md](INDEX-DESIGN.md).
+
+## Report
+
+Close with one report in three parts, worded the same in every skill of this
+plugin so that a task loading several skills still produces one report:
+**Conclusion** (the answer or change and the conditions it holds under),
+**Verified** (what was run or observed, with versions), and **Not verified**
+(assumptions and remaining checks, each with the step that would settle it).
+Put this skill's report items into those parts rather than adding sections. A
+short answer can give each part in a sentence; leave out a part with nothing
+in it.

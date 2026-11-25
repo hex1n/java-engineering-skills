@@ -41,6 +41,17 @@ If version evidence is unresolved, continue work that does not depend on newer
 features and identify the missing build decision before introducing them.
 Compilation on the developer's newer JDK alone does not establish compatibility.
 
+## Report
+
+Close with one report in three parts, worded the same in every skill of this
+plugin so that a task loading several skills still produces one report:
+**Conclusion** (the answer or change and the conditions it holds under),
+**Verified** (what was run or observed, with versions), and **Not verified**
+(assumptions and remaining checks, each with the step that would settle it).
+Put this skill's report items into those parts rather than adding sections. A
+short answer can give each part in a sentence; leave out a part with nothing
+in it.
+
 ## Coverage boundary
 
 Use preview or incubator features only when the task names them and their
