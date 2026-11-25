@@ -49,8 +49,9 @@ Agent 可能沿用旧写法，也可能直接采用超出项目版本的新特�
 Lambda、方法引用、Stream、收集器、并行流、接口默认/静态方法和 Optional 等。
 每条标注首次稳定版本；preview 和 incubator 特性
 不作为默认建议。规则通过 Markdown 分层读取，版本解析由 agent 检查构建配置
-完成，**没有自动解析 Maven/Gradle 的 CLI**。使用插件不需要额外安装运行时；
-编译和测试 Java 项目仍需项目要求的工具链。
+完成，**没有自动解析 Maven/Gradle 的 CLI**。skill 本身不需要额外运行时，但编辑前的
+skill 检查 hook 用 `node` 启动，需要 PATH 上有 Node.js 22+（与仓库脚本相同，更旧版本未测试）；
+找不到 `node` 时 hook 报错放行，硬规则不会生效。编译和测试 Java 项目仍需项目要求的工具链。
 
 ## 本地安装
 
@@ -87,13 +88,18 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 `*.receipts.jsonl`；Desktop 侧聊等临时线程不落盘 rollout，只能依靠这份回执，
 仍在运行（只返回 `session_id`）的读取不算。读取被截断时单独完整读取
 该文件再重试。临时目录（按本机 `os.tmpdir()` 判断，含 macOS 的 `/var/folders/…/T`）、
-scratchpad 和 `.scratch` 下的文件不检查。heredoc 与 PowerShell here-string
+scratchpad 和 `.scratch` 下的文件不检查，但路径中含 `src/`、`db/migration/`、`flyway/`、
+`liquibase/` 的仍按项目代码检查（例如包名为 `temp`，或整个仓库放在 `/tmp` 下）。
+`sed`/`perl`/`ruby` 的 `-i` 不论出现在第几个选项都算原地写入，`awk -i inplace` 同样；
+引号里的 `>`、`tee` 与 `sed -i` 只是文字，不算写入。`git apply`、`git am` 与 `patch`
+按 diff 头里的文件判断，diff 文件读不到时只提醒。heredoc 与 PowerShell here-string
 的正文按写入内容处理：正文里提到的文件名不算写入目标，写入 `*.java` 时正文
 参与内容规则判断。`apply_patch` 只从补丁头识别目标，正文不再作为另一段脚本扫描；
 相对路径先按工作目录解析，再排除 scratch。无法解析的动态脚本写入只提醒，
 不会把正文提及的所有 Java 文件猜成目标。这是有限的编辑检查，不是脚本沙箱。
-每次决定在插件数据目录写入会话级 `*.audit.jsonl`，仅含调用 ID、目标、原因和
-退出码，不记录命令或源码。该记录表示 hook 的决定，不能证明宿主确实执行了拦截。
+涉及受检文件的决定在插件数据目录写入会话级 `*.audit.jsonl`，仅含时间、调用 ID、
+工具名、目标、缺少的 skill、原因和决定（`deny`/`allow`），不记录命令或源码；
+不写任何受检文件的调用不写状态也不写 audit。该记录表示 hook 的决定，不能证明宿主确实执行了拦截。
 脚本出错时放行，
 不会阻止编辑。`jvm-performance` 与 `java-design` 的需求通常在提问时出现，
 仍由 `description` 选用。

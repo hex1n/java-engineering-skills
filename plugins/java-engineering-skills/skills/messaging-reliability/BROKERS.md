@@ -8,8 +8,15 @@ request to upgrade an existing deployment.
 
 Ordering is within a partition. Order holds per partition per producer under
 `enable.idempotence`, which requires `acks=all`, `retries` above 0, and
-`max.in.flight.requests.per.connection` at most 5. It is enabled by default
-when nothing conflicts, but a conflicting value without an explicit
+`max.in.flight.requests.per.connection` at most 5. Defaults depend on the
+client release: kafka-clients before 3.0 default to `enable.idempotence=false`
+and `acks=1`; 3.0 changed the defaults to idempotence on and `acks=all`, but
+3.0.0 and 3.1.0 leave idempotence off unless it is set explicitly
+([KAFKA-13598](https://issues.apache.org/jira/browse/KAFKA-13598), fixed in
+3.0.1, 3.1.1 and 3.2.0). Read the kafka-clients version the build resolves
+before relying on a default: Spring Boot 2.5 and earlier manage 2.x clients,
+and Boot 2.6.0 manages 3.0.0.
+On a client that defaults it on, a conflicting value without an explicit
 `enable.idempotence=true` disables it silently, while a conflicting value with
 it set explicitly throws `ConfigException`. With idempotence off and in-flight
 above 1, a retried batch can land behind a later one. Durability

@@ -17,8 +17,12 @@ Two Java 8 GC-log traps:
 - Phase lines are spelled differently with and without `-XX:+PrintGCDetails`
   (the `java` tool page documents neither form), so read the spellings out of
   the log in hand before counting collector cycles.
-- `-Xloggc` alone stamps events with seconds since the first GC; alignment with
-  application logs needs `-XX:+PrintGCDateStamps`, which is off by default.
+- `-Xloggc` alone stamps events with seconds since JVM start (older Oracle 8
+  pages say "first GC"; [JDK-6395139](https://bugs.openjdk.org/browse/JDK-6395139)
+  corrects that). Wall-clock stamps need `-XX:+PrintGCDateStamps`, off by
+  default; without it, add the offsets to the process start time
+  (`jcmd <pid> VM.uptime` or the start time in `/proc/<pid>/stat`) before
+  lining events up with application logs.
 
 [Java 8 GC logging options](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html),
 [unified logging](https://openjdk.org/jeps/158).
@@ -28,17 +32,20 @@ Two Java 8 GC-log traps:
 Use the matching JDK/vendor tool distribution where available and inspect
 `jcmd <pid> help` plus help for the selected command. The JDK tool
 documentation does not promise that one release's tools work against another
-release's JVM. `jcmd` must run on the target's machine with the effective user
-and group that launched the JVM. Check attach permissions,
+release's JVM. Check attach permissions,
 PID/container namespaces, VM implementation, and writable target-side paths.
 Commands shown here are HotSpot examples, not portable across all JVMs.
 [jcmd](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jcmd.html).
 
-`jcmd` requires the same machine and the same effective user and group that
-launched the JVM. A mismatched identity can answer with `Unable to open socket
-file: target process not responding or HotSpot VM not loaded`, but so can a
-hung VM, a stale attach file, or `-XX:+DisableAttachMechanism`: check identity
-and namespace before concluding that the JVM is unresponsive. Running as root,
+`jcmd` runs on the target's machine as the effective user and group that
+launched the JVM. Root is the exception only on releases with
+[JDK-8197387](https://bugs.openjdk.org/browse/JDK-8197387): JDK 11.0.1 and
+later, Oracle 8u341 and OpenJDK 8u351 and later let root attach to any VM; on
+older 8 and 9/10 builds root is refused like any other user. A refused attach
+answers with `Unable to open socket file: target process not responding or
+HotSpot VM not loaded`, but so can a hung VM, a stale attach file, or
+`-XX:+DisableAttachMechanism`: check the JDK release, identity and namespace
+before concluding that the JVM is unresponsive. On those older builds, root's
 `jstat` can still read the JVM's per-user performance-counter file when the
 attach handshake fails, which shows the VM is alive; as another unprivileged
 user both tools fail, so the pair discriminates nothing there. Inside a container,

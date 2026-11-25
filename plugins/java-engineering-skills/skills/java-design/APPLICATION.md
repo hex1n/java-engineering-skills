@@ -24,15 +24,27 @@ final class Checkout {
 ```
 
 Application wiring selects the implementation. Introduce a registry only when
-selection is dynamic; validate duplicate keys and specify an unknown-carrier
-response:
+selection is dynamic; reject duplicate carriers and specify an unknown-carrier
+response. Let each implementation name its carrier, so the registry sees every
+entry: a `Map` built by the caller has already dropped a duplicate before any
+constructor can check it.
 
 ```java
+interface CarrierShippingQuote extends ShippingQuote {
+    String carrier();
+}
+
 final class ShippingQuotes {
     private final Map<String, ShippingQuote> byCarrier;
 
-    ShippingQuotes(Map<String, ShippingQuote> byCarrier) {
-        this.byCarrier = Collections.unmodifiableMap(new LinkedHashMap<>(byCarrier));
+    ShippingQuotes(Collection<? extends CarrierShippingQuote> quotes) {
+        Map<String, ShippingQuote> map = new LinkedHashMap<>();
+        for (CarrierShippingQuote quote : quotes) {
+            if (map.putIfAbsent(quote.carrier(), quote) != null) {
+                throw new IllegalArgumentException("duplicate shipping quote for carrier " + quote.carrier());
+            }
+        }
+        this.byCarrier = Collections.unmodifiableMap(map);
     }
 
     ShippingQuote forCarrier(String carrier) {
@@ -45,8 +57,9 @@ final class ShippingQuotes {
 }
 ```
 
-One `Map` makes a duplicate carrier impossible at construction; an unknown
-carrier fails at lookup, and the test names both cases. A strategy does not need a corresponding abstract factory, builder,
+A duplicate carrier fails at construction and an unknown carrier fails at
+lookup; test both. With Spring, inject `List<CarrierShippingQuote>` so every
+bean reaches the constructor. A strategy does not need a corresponding abstract factory, builder,
 and singleton. A factory earns its place when it owns a real construction
 protocol or compatible family of objects.
 
