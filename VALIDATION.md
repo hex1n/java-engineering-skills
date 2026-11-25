@@ -1,5 +1,64 @@
 # Validation record
 
+## Unreleased — OceanBase mixed ALTER case, English triggers for java-concurrency and java-design — 2026-11-26
+
+Changes:
+
+- New `discriminating` case `oceanbase-mixed-alter` (English only, like the
+  other OceanBase cases): one ALTER that adds a column AFTER another, adds one
+  at the end and drops one, on OceanBase 4.2.1 with inserts around the clock.
+  The grader uses only facts the documentation states: the 4.2.1 online and
+  offline DDL page lists an end-of-table add as online, a middle add and a
+  column drop as offline, and a mixed column statement with any offline part
+  as offline; the 4.3.5 page says DML is not allowed during offline DDL. It
+  does not depend on the DECIMAL widening.
+- java-concurrency and java-design descriptions name the English asks the
+  English eval prompts make: a check-then-act race on a `ConcurrentHashMap`,
+  climbing thread counts, timeouts that leave the work running, hangs in
+  `Future.get` or shutdown, explaining code when nothing can be run; and
+  reviewing a proposed refactoring into State, Command, Strategy or Abstract
+  Factory.
+
+Executed (Claude Code 2.1.332, `--model sonnet`, sonnet judge, reads allowed
+under the plugin directory):
+
+- `oceanbase-mixed-alter`, with-without, two rounds of 3 runs ($1.54): with
+  5/6, without 2/6. The one failing with-plugin answer stated the documented
+  classification and recommended leaving the column, but offered a drop at
+  the quietest hour after a rehearsal, which the first fail clause caught.
+  Pass condition 2 now also accepts an offline step run after a rehearsal has
+  measured and accepted the insert stall, and the fail clause targets an
+  answer that assumes inserts keep flowing during the rebuild. Replay against
+  the real judge ($0.98, 3 votes each): that answer and another with-plugin
+  answer pass 3:0; of the six without-plugin answers, 2 pass and 4 fail (one
+  1:2), all failing ones hedge the classification; two written wrong answers
+  (all online; rebuild with inserts continuing) and a separate without-plugin
+  answer fail 3:0. The other four with-plugin answers passed the stricter
+  first grader and were not replayed.
+- Trigger, English `async-quota-thread-growth` and
+  `order-state-machine-design`, plugin arm only, skill check only, 6 runs
+  each: old descriptions 5/6 and 4/6 ($0.89), new descriptions 6/6 and 6/6
+  ($0.90). With round 6, old descriptions loaded the skill in 7/9 and 6/9
+  English runs.
+- Neighbour check with the new descriptions, plugin arm only, 3 runs each
+  ($0.76): neither skill loaded in `neg-modern-java-no-framework-skills`,
+  `redis-lock-double-charge`, `transaction-swallowed-exception` or
+  `java8-release-idioms` (0/12); each case's own skill loaded as before,
+  except one modern-java negative run that answered without any skill.
+- No discriminating java-concurrency or java-design case was found. Five
+  screening prompts, each run once without the plugin by sonnet (three also
+  by the default model), were all answered correctly: CallerRunsPolicy
+  discarding after shutdown so `Future.get` never returns;
+  `ExecutorService.close()` in try-with-resources waiting for the work; an
+  unconditional context clear under caller-runs; `allOf` not failing fast
+  with `CompletableFuture.cancel(true)` not interrupting; and a Java 17
+  Visitor replaced by a pattern switch. None was added. The JDK 21 behaviours
+  behind them were confirmed by running them.
+
+Not verified: Codex; other agent models; the four unreplayed with-plugin
+OceanBase answers under the revised grader; whether the description change
+holds beyond 12 runs.
+
 ## Unreleased — evals for three uncovered skills, OceanBase claim grader and codes — 2026-11-26
 
 Changes:

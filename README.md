@@ -212,8 +212,8 @@ rollout 核对，按推测的格式识别。
 （`prompt.md` 加 `graders/*.md`），按标签分四组：
 
 - `discriminating`：不装插件时模型默认答错、答案在 skill 文本里的题（OceanBase
-  抢任务、OceanBase 隔离级别与锁读、OceanBase 自增 id 增量同步、Boot 2.6.0 下的
-  Kafka 生产者默认值、JVM jstat 与 attach）。插件的价值主要看这一组的 Δ。
+  抢任务、OceanBase 隔离级别与锁读、OceanBase 自增 id 增量同步、OceanBase 一条
+  ALTER 里混合加列删列、Boot 2.6.0 下的 Kafka 生产者默认值、JVM jstat 与 attach）。插件的价值主要看这一组的 Δ。
 - `regression`：不装插件也能答对的题（Boot 2.3 升 2.7、Spring 装配证据、release 8
   写法、JUnit 4 测试未被发现、Redis 锁扣款、订单越权、事务不回滚、事务里异常被吞、2 核容器上
   的配额竞态与 CompletableFuture 线程暴涨、订单状态机的设计取舍、提交后发 Kafka 与消费端去重），
