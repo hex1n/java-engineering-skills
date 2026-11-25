@@ -52,9 +52,12 @@ Sources: [isolation overview](https://www.oceanbase.com/docs/common-oceanbase-da
 
 The 4.2.1 MySQL syntax is `FOR UPDATE [WAIT n | NOWAIT | NO_WAIT]` or
 `LOCK IN SHARE MODE`. `FOR SHARE` and `SKIP LOCKED` are not in the 4.2.1
-grammar; `SKIP LOCKED` appears in later 4.x documentation. Claim jobs with a conditional
-`UPDATE` of a lease/owner column, check the affected-row count, and fence the
-completing write on the owner (see the READ COMMITTED caveat above).
+grammar; `SKIP LOCKED` appears in later 4.x documentation. Claim jobs with a
+conditional `UPDATE` of a lease/owner column and fence the completing write on
+the owner (see the READ COMMITTED caveat above). For one row, check the
+affected-row count; for a batch (`... LIMIT 20`), write a token unique to this
+claim into the owner column and select the rows carrying it, since the count
+does not say which rows were claimed.
 `LOCK IN SHARE MODE` is emulated with write locks, so "shared" readers block
 each other. `FOR UPDATE … LIMIT 1` locks only the returned row; with
 `ORDER BY` it locks every selected row. `GET_LOCK()` and `RELEASE_LOCK()` are
@@ -78,11 +81,14 @@ Sources: [SELECT syntax](https://www.oceanbase.com/docs/common-oceanbase-databas
 backfill, report, or lock wait) fails with ERROR 4012 and is rolled back. Set a
 larger session value for a known long operation or split the work into bounded
 batches. `ob_trx_timeout` defaults to 24 hours from 4.0 (100 seconds before
-it), as does `ob_trx_idle_timeout` in 4.x; read the session values.
+it). The pages cited here do not state the `ob_trx_idle_timeout` default; read
+the session values of both.
 
-After a transaction timeout (ERROR 4012, OceanBase -6210) or an idle timeout
-(ERROR 6002, OceanBase -6224), the application must issue `ROLLBACK` before the connection can
-be reused. Make the pool discard or roll back such a connection. A DDL
+After a transaction timeout (OceanBase -6210) or a statement after an idle
+timeout (OceanBase -6224), the application must issue `ROLLBACK` before the
+connection can be reused. The documentation gives the OceanBase codes, not the
+MySQL-mode error numbers a client sees; take those from the target's error
+message. Make the pool discard or roll back such a connection. A DDL
 statement inside an active transaction commits it implicitly.
 
 Sources: [ob_query_timeout](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000000220700),

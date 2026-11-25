@@ -12,11 +12,11 @@ connection the task authorizes, never on production by default.
 
 - Engine and version (`SELECT VERSION()`): OceanBase when `VERSION()` names
   OceanBase or `SELECT OB_VERSION()` succeeds, since the `version` variable
-  can be changed. That
-  routes locking, isolation, timeout, auto-increment, DDL, partitioned-index,
-  plan-evidence, and replica-read questions to [OCEANBASE.md](OCEANBASE.md),
-  which replaces the InnoDB rules in the other files; otherwise note the exact
-  5.7, 8.0.x, or 8.4 update, since 8.0 releases differ.
+  can be changed. That routes locking, isolation, timeout, auto-increment,
+  DDL, partitioned-index, plan-evidence, and replica-read questions to
+  [OCEANBASE.md](OCEANBASE.md), which replaces the InnoDB rules in the other
+  files; otherwise note the exact 5.7, 8.0.x, or 8.4 update, since 8.0
+  releases differ.
 - Isolation level (`transaction_isolation`, `tx_isolation` before MySQL
   5.7.20), `sql_mode`, `character_set_server`, and `collation_server`, from
   configuration or `SHOW VARIABLES`.
