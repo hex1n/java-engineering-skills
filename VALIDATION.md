@@ -1,5 +1,43 @@
 # Validation record
 
+## Unreleased — build-file reminders, slash-command loads, trigger statistics — 2026-11-25
+
+Changes:
+
+- The pre-edit check reminds (soft) on `pom.xml`, `build.gradle(.kts)`,
+  `gradle.properties` and `libs.versions.toml` when the written text sets the
+  Java level (`use-modern-java`) or the Spring Boot version
+  (`spring-boot-engineering`). A dependency or plugin added without such a
+  setting, a bare `<version>` line and an in-place `sed -i` do not remind.
+  Test sources keep both hard rules (java-testing and use-modern-java).
+- A skill the user types as `/java-engineering-skills:<skill>` counts as
+  loaded: Claude Code writes its text as a meta user record, with no tool
+  call, and the check now reads that record when it holds the current body.
+- `scripts/pre-edit-skill-check-stats.mjs` reports how each skill was first
+  loaded (model, explicit, hook, not-loaded) beside the covered-edit columns.
+
+Executed:
+
+- `node --test "tests/*.test.mjs"`: 55/55. The build-file test fails on the
+  previous hook. `node scripts/check.mjs`: pass.
+- Four `claude -p` runs (Claude Code 2.1.332, haiku, `--plugin-dir`, a
+  throwaway Maven project outside the temp directory, about $0.03 in all):
+  a slash-invoked use-modern-java followed by a Java edit was refused by the
+  previous hook and the agent loaded the skill again; with the change the same
+  edit went through without a refusal. The runs also gave the transcript
+  layouts the statistics read: the slash-command record, the meta record (with
+  `sourceToolUseID` for a Skill call), the refusal as an error `tool_result`,
+  and the reminder as a `hook_additional_context` attachment. An Edit that
+  set `maven.compiler.release` from 8 to 11 in `pom.xml` went through with the
+  use-modern-java reminder attached.
+
+Not verified:
+
+- Interactive Claude Code sessions (only `-p` runs were inspected), and any
+  Codex rollout: how Codex records an explicit skill mention and a refusal
+  is assumed in the statistics. The hook's own Codex reading is unchanged.
+- The build-file reminder in an interactive session and in Codex.
+
 ## Unreleased — spring-boot transaction routing and the spring-wiring judge — 2026-11-25
 
 spring-boot-engineering loaded in only some English runs of
