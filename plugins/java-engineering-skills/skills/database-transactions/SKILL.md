@@ -5,21 +5,28 @@ description: Design or repair MySQL/InnoDB or OceanBase MySQL-mode schemas, inde
 
 # MySQL Design and Transactions
 
-Before reading any SQL, record from the target connection:
+Before reasoning about SQL, collect these facts, first from what needs no
+live database: the JDBC URL, driver and dialect, migrations or DDL in the
+repository, and datasource configuration. Run the statements below only on a
+connection the task authorizes, never on production by default.
 
-- `SELECT VERSION()`: a result containing `OceanBase` routes locking,
-  isolation, timeout, auto-increment, DDL, partitioned-index, plan-evidence,
-  and replica-read questions to [OCEANBASE.md](OCEANBASE.md), which replaces
-  the InnoDB rules in the other files; otherwise note the exact 5.7, 8.0.x,
-  or 8.4 update, since 8.0 releases differ.
-- `SHOW VARIABLES` for `transaction_isolation`, `sql_mode`,
-  `character_set_server`, and `collation_server`.
-- `SHOW CREATE TABLE` for every table the task touches (engine, indexes,
-  collation); the transactional claims here assume InnoDB.
+- Engine and version (`SELECT VERSION()`): OceanBase when `VERSION()` names
+  OceanBase or `SELECT OB_VERSION()` succeeds, since the `version` variable
+  can be changed. That
+  routes locking, isolation, timeout, auto-increment, DDL, partitioned-index,
+  plan-evidence, and replica-read questions to [OCEANBASE.md](OCEANBASE.md),
+  which replaces the InnoDB rules in the other files; otherwise note the exact
+  5.7, 8.0.x, or 8.4 update, since 8.0 releases differ.
+- Isolation level (`transaction_isolation`, `tx_isolation` before MySQL
+  5.7.20), `sql_mode`, `character_set_server`, and `collation_server`, from
+  configuration or `SHOW VARIABLES`.
+- Every table the task touches (engine, indexes, collation), from migrations
+  or `SHOW CREATE TABLE`; the transactional claims here assume InnoDB.
 - Connector/J and ORM/mapper versions from the effective POM, and the Spring
   transaction manager bean that owns the DataSource.
 
-Done when each item has a value or is marked unreachable.
+Done when each item has a value or is marked unknown; continue with the rest
+and state which conclusions depend on an unknown.
 
 - For row identity, types, relationships, business constraints, and soft deletion,
   read [TABLE-DESIGN.md](TABLE-DESIGN.md).

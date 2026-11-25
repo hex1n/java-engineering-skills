@@ -10,6 +10,11 @@ selected stable language and Java SE library features through Java 21.
 
 ## Apply the guidelines
 
+Fast path: when the change introduces no idiom from the
+[rule index](#rule-index), such as a plain bug fix or logic change, step 1
+needs only the module's effective `release`/`target`, steps 2–4 do not apply,
+and step 5 still does.
+
 1. Establish the target source set's language level, available Java SE APIs,
    minimum runtime, and preview setting using [VERSION.md](VERSION.md).
    Reuse established evidence until the module or build configuration changes.
@@ -19,13 +24,14 @@ selected stable language and Java SE library features through Java 21.
 3. Follow the linked rule details before applying a candidate transformation.
    Each explains the intended use, behavior-sensitive exceptions, an example,
    and its primary source.
-4. Apply the idiom to new code and to lines already inside the edit. For each
-   replacement, name the behavior it keeps (mutability, null handling,
-   encounter order, exceptions, resource ownership, concurrency, public or
-   serialized contracts) and keep the old form wherever one of these would
-   change. Done when every replaced line carries that note; the Java
-   baseline, dependencies, and untouched subsystems stay as VERSION.md found
-   them.
+4. Apply an idiom only to code the task already changes; leave untouched
+   lines alone unless the task asks for modernization. For each replacement,
+   check what it must keep (mutability, null handling, encounter order,
+   exceptions, resource ownership, concurrency, public or serialized
+   contracts) and keep the old form wherever one of these would change. List
+   the replacements and the behavior each keeps in the summary, not in code
+   comments. The Java baseline, dependencies, and untouched subsystems stay as
+   VERSION.md found them.
 5. Verify changed code with the module's existing build and focused tests at
    the established target. For a migration, exercise the affected contract
    boundaries from the rule details. Report the target, relevant changes, and

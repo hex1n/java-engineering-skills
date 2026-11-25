@@ -17,6 +17,15 @@ CPU/memory limits. Keep production and test/runtime differences explicit.
 - For JMH, realistic load, and before/after comparisons, read
   [MEASUREMENT.md](MEASUREMENT.md).
 
+Pick the path from what is available:
+
+- A live JVM you can reach: do Step 1 before attaching.
+- Evidence the user pasted (logs, jstat output, flags): reason from it alone
+  and ask for the one missing item that separates the hypotheses.
+- Code-level slowness or benchmark design with no production process: go to
+  the hypothesis at the end of Step 1 and [MEASUREMENT.md](MEASUREMENT.md); Step 1 applies
+  once production evidence exists.
+
 Step 1, before any attach: from the live command line take `-Xmx`, the GC log
 path (`-Xloggc` on Java 8, `-Xlog:gc*:file=…` from JDK 9), and any
 `-agentlib:jdwp` or `jmxremote` flag; read `/proc/<pid>/status`

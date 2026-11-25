@@ -39,6 +39,7 @@ and contention rather than infer speed from a primitive's name.
 
 Report the interleaving or overload condition addressed, tests executed, and
 remaining assumptions. For a memory-model claim, run the interleaving under
-jcstress; for a throughput or contention claim, measure with JMH or a sampling
-profiler on the real workload and report the numbers with the tool and
-configuration used.
+jcstress where the project can, or state that the conclusion is reasoned from
+the Java Memory Model and untested; for a throughput or contention claim,
+measure with JMH or a sampling profiler on the real workload and report the
+numbers with the tool and configuration used, or label the claim unmeasured.

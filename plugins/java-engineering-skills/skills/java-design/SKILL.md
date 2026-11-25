@@ -15,7 +15,7 @@ release and runtime; examples here work with Java 8 unless stated otherwise.
    pressure as three lines, each pointing at a class or method: what varies
    independently, which invariant spans more than one operation, and who owns
    each piece of state or resource. Done when every line names code, not a
-   category.
+   category. If no code exists yet, name the use cases and callers instead.
 2. Describe the smallest useful interface, including failure modes, ordering,
    mutability, thread safety, and lifecycle. Keep implementation decisions
    behind that interface when callers do not need them.

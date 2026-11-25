@@ -14,6 +14,20 @@ Java 8, and Boot 3.x/Framework 6.x, which requires Java 17; per-line details
 are in CONFIGURATION.md. Confirm exact patch requirements; examples are not
 upgrade instructions.
 
+## Check the common causes first
+
+When behavior differs from what an annotation suggests, check these before
+deeper tracing:
+
+- The call reaches the bean through its proxy: no self-invocation, and the
+  method is not private or final.
+- Rollback rules: by default a checked exception does not roll back a
+  `@Transactional` method.
+- An `@Async` method returning `void` reports failures only to the
+  `AsyncUncaughtExceptionHandler`.
+- More than one candidate bean without `@Primary` or `@Qualifier`.
+- The condition, profile, or property that registers the bean is active.
+
 ## Select the relevant reference
 
 - For version compatibility, dependency management, injection, auto-configuration,
