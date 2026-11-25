@@ -59,6 +59,11 @@ test('non-modern-Java entries are validated', t => {
   edit(root, `${SKILLS}/messaging-reliability/SKILL.md`, text => text.replace('name: messaging-reliability', 'name: unrelated'));
   rejected(root, /Skill name differs/);
 });
+test('a SKILL.md over the 8000-byte Codex cut is rejected', t => {
+  const root = fixture(t);
+  edit(root, `${SKILLS}/use-modern-java/SKILL.md`, text => `${text}\n${'x'.repeat(8000)}\n`);
+  rejected(root, /SKILL\.md over 8000 bytes: use-modern-java/);
+});
 test('links inside nested references are checked', t => {
   const root = fixture(t);
   edit(root, `${SKILLS}/spring-boot-engineering/CONFIGURATION.md`, text => `${text}\n[Details](MISSING.md)\n`);

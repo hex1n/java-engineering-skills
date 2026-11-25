@@ -9,6 +9,7 @@ const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta
 const PLUGIN = path.join(ROOT, 'plugins/java-engineering-skills');
 const SKILLS = path.join(PLUGIN, 'skills');
 const SKILL = path.join(SKILLS, 'use-modern-java');
+const SKILL_MAX_BYTES = 8000;
 const read = file => fs.readFileSync(file, 'utf8').replace(/\r\n?/g, '\n');
 const json = file => JSON.parse(read(file));
 const require = (condition, message) => { if (!condition) throw new Error(message); };
@@ -91,6 +92,9 @@ function checkSkills() {
     const name = path.basename(skill);
     const entry = path.join(skill, 'SKILL.md');
     require(isFile(entry), `Missing skill entry: ${name}`);
+    // Codex cuts a plugin skill's SKILL.md at 8000 bytes (MAX_SKILL_PROMPT_BYTES).
+    const bytes = fs.statSync(entry).size;
+    require(bytes <= SKILL_MAX_BYTES, `SKILL.md over ${SKILL_MAX_BYTES} bytes: ${name} (${bytes})`);
     const text = read(entry);
     const frontmatter = /^---\n(.*?)\n---(?:\n|$)/s.exec(text);
     require(frontmatter, `Missing frontmatter: ${name}`);

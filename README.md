@@ -254,7 +254,8 @@ CI 不跑这些 eval：每次运行都要用真实模型凭据调用 Claude，�
 `early access`。实测结果见 VALIDATION.md。
 
 离线检查覆盖两个插件清单及 marketplace 的对应关系、所有 skill 的包内引用、
-未被入口引用的资料，以及现代 Java 规则索引与正文的版本一致性。
+未被入口引用的资料、每个 `SKILL.md` 不超过 8000 字节（Codex 截断插件 skill 的上限），
+以及现代 Java 规则索引与正文的版本一致性。
 它不代替 agent 行为评测或 Java/框架/中间件集成测试。
 新增规则和评测方法见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 各版本实际执行的检查及未覆盖范围见 [VALIDATION.md](VALIDATION.md)。
