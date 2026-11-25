@@ -1,5 +1,48 @@
 # Validation record
 
+## Unreleased — use-modern-java within Codex's 8000-byte cut — 2026-11-26
+
+`use-modern-java/SKILL.md` was 8497 bytes, above the 8000 bytes at which Codex
+cuts a plugin skill, so a `$use-modern-java` mention injected a truncated body.
+
+Changes:
+
+- The coverage boundary moves word for word to `VERSION.md#coverage-boundary`;
+  SKILL.md keeps a pointer naming preview and incubator features, framework or
+  library migrations, Android and Java beyond 21. The steps are reworded more
+  tightly with the same content. The description, the shared Report section,
+  the step 3 examples and the rule index are unchanged. SKILL.md is now 7836
+  bytes.
+- `scripts/check.mjs` fails any `SKILL.md` over 8000 bytes on disk. On the
+  previous file it reports `SKILL.md over 8000 bytes: use-modern-java (8497)`.
+
+Executed:
+
+- `node --test "tests/*.test.mjs"`: 61/61 (one new). `node scripts/check.mjs`:
+  pass.
+- Claude Code 2.1.332, `claude plugin eval --tag use-modern-java`, plugin arm
+  only, sonnet judge, three runs per case, README read grant, before and after
+  in parallel ($0.97 and $1.04):
+
+| Case | Loaded before → after | Passed before → after |
+|---|---|---|
+| java8-release-idioms | 3/3 → 3/3 | 3/3 → 3/3 |
+| java8-release-idioms-zh | 3/3 → 3/3 | 3/3 → 3/3 |
+| neg-modern-java-no-framework-skills | 0/3 → 1/3 | 0/3 → 1/3 |
+| neg-modern-java-no-framework-skills-zh | 2/3 → 3/3 | 2/3 → 3/3 |
+
+Every failure was the skill not loading; the answer criteria (release 8
+mutability, null behavior) passed in 12 of 12 runs both times, and no framework
+skill loaded. Whether a skill loads depends on its description, which did not
+change, so the English negative's 0/3 and 1/3 are routing noise on the same
+text (5 of 6 across English and Chinese in the 2026-11-25 routing run).
+
+Not verified:
+
+- A real Codex run with the 7836-byte file.
+- Whether the loaded skill opened the moved coverage section; no case asks
+  for a preview feature or a framework migration, and the traces were not kept.
+
 ## Unreleased — Codex rollout format checked against source, hook paths measured — 2026-11-25
 
 The statistics script and the hook's reading of Codex were written against an
