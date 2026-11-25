@@ -3,8 +3,12 @@
 ## Start without attaching
 
 Read the evidence that needs no attach first: the GC log named by `-Xloggc`
-(Java 8) or `-Xlog:gc*:file=…` (unified logging, JDK 9+) in the live command
+or `-Xlog:gc*:file=…` (unified logging, JDK 9+) in the live command
 line, `/proc/<pid>/status` and `limits`, and the cgroup memory and CPU files.
+`-Xloggc` alone does not mean Java 8: JDK 9+ (checked on 11, 17 and 21) still
+accept it, print a deprecation warning, and write `-Xlog:gc:<file>`, which
+holds only `gc`-level lines, without the `gc*` phase and heap detail. Take
+the version from `java -version` or `jcmd <pid> VM.version`.
 Also inspect stdout/stderr and service-manager or container logs: Java 8's
 `-verbose:gc`, `-XX:+PrintGC`, or `-XX:+PrintGCDetails` can emit GC events
 without `-Xloggc`, and unified logging can target stdout/stderr. Check actual

@@ -30,7 +30,8 @@ Pick the path from what is available:
   once production evidence exists.
 
 Step 1, before any attach: from the live command line take `-Xmx`, the GC log
-path (`-Xloggc` on Java 8, `-Xlog:gc*:file=…` from JDK 9), and any
+path (`-Xloggc:<file>`, or `-Xlog:gc*:file=…` from JDK 9; `-Xloggc` does
+not identify Java 8, since JDK 9+ still accept it), and any
 `-agentlib:jdwp` or `jmxremote` flag; read `/proc/<pid>/status`
 (VmRSS, Threads), `/proc/<pid>/limits`, and the cgroup memory limit and CPU
 quota files (COLLECTION.md, "Start without attaching"). Done when you can
