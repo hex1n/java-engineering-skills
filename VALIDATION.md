@@ -1,5 +1,86 @@
 # Validation record
 
+## Unreleased — OceanBase no-plugin baseline, a Java 25 executor case, and probes for java-concurrency and java-design — 2026-11-26
+
+Changed:
+
+- `evals/oceanbase-job-claim{,-zh}/graders/engine-recognized.md`: the line on
+  SKIP LOCKED now turns on which claim design the answer writes out for use.
+  Suggesting SKIP LOCKED as a later alternative to adopt only after it is
+  verified passes when the main design is the conditional UPDATE; a main
+  design built on SKIP LOCKED or FOR SHARE, with the conditional UPDATE only
+  as a fallback, fails. The live run had judged near-identical no-plugin
+  answers PASS in Chinese and FAIL in English.
+- `skills/java-concurrency/SKILL.md`: the description adds CompletableFuture
+  or executor code that behaves differently after a JDK upgrade, and the
+  TASKS.md pointer says it records where the default async executor differs
+  between Java releases. TASKS.md itself is unchanged.
+- New case `evals/java25-async-default-executor` (English only,
+  `discriminating`): a Spring Boot service moves from Java 21 to Java 25 on
+  2-CPU pods and an 8-way `supplyAsync` fan-out of blocking calls goes from
+  about 320 ms to about 2.4 s.
+
+Executed, Claude Code 2.1.332, sonnet agent and judge:
+
+- `oceanbase-job-claim`, `oceanbase-job-claim-zh`, `oceanbase-mixed-alter`,
+  with-without, 3 runs each ($3.79). With plugin every grader passed in all
+  9 runs, each reading OCEANBASE.md. Without plugin: job-claim English
+  `engine-recognized` 0/3 (1/3 under the reworded grader) and
+  `timeouts-and-ddl` 1/3; Chinese 3/3 and 0/3; mixed-alter `rollout` 1/3.
+  The `timeouts-and-ddl` failures are four answers that give
+  `ob_trx_timeout` a default of about 100 s and one that never ties the batch
+  size to `ob_query_timeout`. The two mixed-alter failures plan safely but
+  leave the classification of the drop or the AFTER add open. With round 7,
+  mixed-alter stands at 9/9 with plugin and 3/9 without under the current
+  grader.
+- Grader replays, 3 votes each ($1.58 and $0.95): under the final wording
+  the English no-plugin answers that lead with SKIP LOCKED fail, the
+  English and Chinese no-plugin answers that keep it as a verified-later
+  alternative pass, the round-6 no-plugin answer that passed before still
+  passes, earlier plugin answers pass, and the hand-written SKIP LOCKED and
+  no-ownership-check answers fail.
+- `java25-async-default-executor`, with-without, 3 runs ($0.60): 0/3 on
+  both arms; the plugin arm loaded the skill once and never read TASKS.md.
+  After the SKILL.md change, plugin arm only, 3 runs ($0.38): 3/3, each
+  loading java-concurrency and reading TASKS.md. Neighbours after the
+  description change, plugin arm, 2 runs each ($0.59):
+  `java8-release-idioms` and `boot-2.3-to-2.7-on-java-8` passed and loaded
+  only their own skill.
+- JDK 21.0.13, `-XX:ActiveProcessorCount=2`: common pool parallelism 1,
+  `defaultExecutor()` is `ThreadPerTaskExecutor`, 8 blocking 300 ms tasks
+  finish in about 300 ms on 8 new threads; the same tasks on a
+  `ForkJoinPool(1)` take about 2.4 s on one worker. JDK 21 swaps a
+  parallelism-1 `commonPool()` passed to `supplyAsync` for the thread-per-task
+  executor, so a separate pool stood in for Java 25's.
+- Source: jdk-21-ga `CompletableFuture` uses the common pool only when its
+  parallelism is above 1; jdk-25-ga sets `ASYNC_POOL =
+  ForkJoinPool.asyncCommonPool()`, which raises parallelism only from 0 to 2,
+  and has no `screenExecutor`; `ForkJoinPool` sizes the common pool at
+  `availableProcessors() - 1`, at least 1. A non-pool thread calling `join`
+  does not help run the queued tasks.
+- No-plugin probes, sonnet, 2 runs each ($0.39): the Java 25 fan-out (both
+  runs blamed container CPU detection or compensation threads); Java 25
+  virtual threads with a PR replacing `synchronized` and adding
+  `jdk.tracePinnedThreads`; cross-thread nested `computeIfAbsent` on one
+  `ConcurrentHashMap`; a retry Decorator around a payment charge inside
+  `@Transactional`; adding a permitted subtype to a sealed interface whose
+  consumers do not recompile. Only the first separated; the other four were
+  answered correctly without the plugin and were not added. The
+  `computeIfAbsent` deadlock (two threads BLOCKED, nothing thrown) and the
+  `MatchException` for a consumer compiled before the new subtype were
+  confirmed on JDK 21.
+
+Not verified:
+
+- Java 25 was not run: no JDK 25 binary could be fetched here. The Java 25
+  behaviour comes from jdk-25-ga source. A Java 25 worker blocked in a call
+  that goes through `ForkJoinPool.managedBlock` (for example `HttpClient.send`,
+  which waits on a `CompletableFuture`) may be compensated with an extra
+  worker; the case's symptoms assume a plain blocking socket call.
+- java-design still has no `discriminating` case; the two design probes this
+  round and the one in round 7 were answered correctly without the plugin.
+- The new case and description were measured on sonnet only, not Codex.
+
 ## Unreleased — OceanBase 4.2.1 DECIMAL widening measured on a real instance — 2026-11-26
 
 Changed:

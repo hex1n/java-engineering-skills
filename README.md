@@ -213,7 +213,8 @@ rollout 核对，按推测的格式识别。
 
 - `discriminating`：不装插件时模型默认答错、答案在 skill 文本里的题（OceanBase
   抢任务、OceanBase 隔离级别与锁读、OceanBase 自增 id 增量同步、OceanBase 一条
-  ALTER 里混合加列删列、Boot 2.6.0 下的 Kafka 生产者默认值、JVM jstat 与 attach）。插件的价值主要看这一组的 Δ。
+  ALTER 里混合加列删列、Boot 2.6.0 下的 Kafka 生产者默认值、JVM jstat 与 attach、2 核容器上
+  Java 21 升 25 后 CompletableFuture 默认异步执行器的变化）。插件的价值主要看这一组的 Δ。
 - `regression`：不装插件也能答对的题（Boot 2.3 升 2.7、Spring 装配证据、release 8
   写法、JUnit 4 测试未被发现、Redis 锁扣款、订单越权、事务不回滚、事务里异常被吞、2 核容器上
   的配额竞态与 CompletableFuture 线程暴涨、订单状态机的设计取舍、提交后发 Kafka 与消费端去重），
@@ -221,7 +222,7 @@ rollout 核对，按推测的格式识别。
 - `negative`：不该触发的场景（Node.js 内存、Python + PostgreSQL 死锁），以及
   纯语言改写时相邻 skill 不抢答。用 `tool_used` 的 `min: 0`、`max: 0`、`arm: both`
   断言没有调用。
-- `zh`：英文题的中文版（不含 OceanBase 新题和两道非 Java 负例），复用英文 grader，用来测中文触发词。
+- `zh`：英文题的中文版（不含 OceanBase 新题、Java 25 异步执行器题和两道非 Java 负例），复用英文 grader，用来测中文触发词。
 
 运行方法：
 
