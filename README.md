@@ -78,10 +78,10 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 | 本次写入的内容（不含文件原有 import）涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
 | `pom.xml`、`build.gradle(.kts)`、`gradle.properties`、`libs.versions.toml` 中本次写入的内容设置 Java 级别（`java.version`、`release`/`source`/`target`、`sourceCompatibility`、toolchain `languageVersion` 等）或 Spring Boot 版本（parent、BOM、插件版本、`spring-boot.version`） | `use-modern-java` / `spring-boot-engineering` | 提醒 |
 
-`src/test/**/*.java` 同时命中前两行：测试源集同样按模块的 `release`（或 `testRelease`）编译，一次拦截列出两个 skill，加载一轮即可。构建文件只看写入文本：只加依赖或插件不提醒，只改一行 `<version>`、或 `sed -i` 这类不带写入文本的修改也认不出来。
+`src/test/**/*.java` 同时命中前两行：测试源集同样按模块的 `release`（或 `testRelease`）编译，一次拦截列出两个 skill，加载一轮即可。构建文件只看写入文本：只加依赖或插件不提醒。用 Edit 只改 `pom.xml` 里一行 `<version>` 时，按这一行所在的 `<parent>`/`<dependency>` 块判断（Boot parent 或 BOM 会提醒）；用 shell 改这一行、或 `sed -i` 这类不带写入文本的修改认不出来。
 硬规则的重试不会消耗检查；只有软提醒在每个会话（子代理单独计）最多出现一次。
 加载状态依据同一代理的调用及成功回执：Claude Code 的 `Skill` 成功结果，或读取
-`SKILL.md` 后返回当前插件完整正文的结果。用户在 Claude Code 里直接输入 `/java-engineering-skills:<skill>` 时没有工具调用，宿主把 skill 正文写成一条 meta 用户记录；这条记录含当前完整正文时同样算已加载。仅提及路径、尚未完成、失败、截断的
+`SKILL.md` 后返回当前插件完整正文的结果。用户在 Claude Code 里直接输入 `/java-engineering-skills:<skill>` 时没有工具调用，宿主把 skill 正文写成一条 meta 用户记录；这条记录含当前完整正文时同样算已加载。Codex 里用户写 `$<skill>` 点名时，宿主把 `SKILL.md` 放进一条以 `<skill>` 开头的用户消息；含当前完整文件时同样算已加载（Codex 对插件 skill 的正文截到 8000 字节，超过的不算，见 VALIDATION.md）。仅提及路径、尚未完成、失败、截断的
 读取均不算已加载；旧版未经验证的缓存会从回执重建。Codex 通过 `functions.exec`
 读取时保留完整成功回执，包括 `exit_code`，例如 `text(await tools.exec_command(...))`；
 只输出 `.output` 会丢失成功状态。子代理分别从 Codex 的 rollout 文件或 Claude Code
@@ -202,11 +202,13 @@ node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 ```
 
 “第一次加载”分四类：`model`（模型按 description 自行加载）、`explicit`（用户输入
-`/java-engineering-skills:<skill>`）、`hook`（检查拦截或提醒之后才加载）、`not-loaded`
+`/java-engineering-skills:<skill>`，或在 Codex 里写 `$<skill>`）、`hook`（检查拦截或提醒之后才加载）、`not-loaded`
 （有相关编辑但从未加载）。后三列只统计有相关编辑的会话：`edited`、`before-edit`（第一次
-相关编辑前已加载）、`late`（编辑后才加载）；被拦截的编辑没有发生，不计入。Claude Code
-一侧的记录格式按 2.1.332 的会话核对过；Codex 一侧的显式调用与拦截记录格式尚未用真实
-rollout 核对，按推测的格式识别。
+相关编辑前已加载）、`late`（编辑后才加载）；被拦截或工具报错的编辑没有发生，不计入。Codex 会话从
+`$CODEX_HOME`（默认 `~/.codex`）下的 `sessions/` 和 `archived_sessions/` 读取，压缩成
+`.jsonl.zst` 的会话会跳过并提示。Claude Code 一侧的记录格式按 2.1.332 的会话核对过；Codex
+一侧按 openai/codex 源码核对过，尚未用真实 rollout 核对。只改 `pom.xml` 一行 `<version>` 的编辑
+要读文件才能判断，事后统计时文件已变，这类编辑统计不到。
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例
 （`prompt.md` 加 `graders/*.md`），按标签分四组：

@@ -1,5 +1,98 @@
 # Validation record
 
+## Unreleased — Codex rollout format checked against source, hook paths measured — 2026-11-25
+
+The statistics script and the hook's reading of Codex were written against an
+assumed rollout layout. This round checks that layout against the openai/codex
+source and measures each hook path with the Claude CLI.
+
+Changes:
+
+- The hook counts a skill the user names in Codex (`$<skill>`) as loaded. The
+  host puts the skill into a user message `<skill><name>…</name><path>…</path>`
+  followed by the whole `SKILL.md`; the hook accepts it when the path ends in
+  `skills/<skill>/SKILL.md` and the text holds the current body.
+- An Edit that replaces only a `<version>` line in `pom.xml` is judged by the
+  `<parent>` or `<dependency>` block the line sits in, read from the file on
+  disk. A Spring Boot parent or `spring-boot-dependencies` BOM now reminds about
+  spring-boot-engineering; the project's own version and other dependencies do
+  not.
+- Statistics:
+  - A Codex developer message is no longer taken as the model's text, so a
+    load after a reminder counts as `hook`, not `model`.
+  - An edit whose tool reported an error (Claude Code `is_error`) is not
+    counted.
+  - Codex rollouts are read from `$CODEX_HOME` (default `~/.codex`)
+    `sessions/` and `archived_sessions/`.
+  - Compressed `.jsonl.zst` rollouts are counted, skipped, and reported on
+    stderr.
+  - Explicit loads in both runtimes now come from the hook's own reader.
+
+Checked against source (openai/codex, commit `06f334aa`, 2026-11-25; no real
+Codex rollout was read or produced):
+
+- Rollout location:
+  - `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<thread id>.jsonl`.
+  - Archived threads move to `archived_sessions/`.
+  - Compression to `.jsonl.zst` sits behind the feature
+    `local_thread_store_compression`, which is off by default.
+- Line layout: `{timestamp, type, payload}`, where type is one of
+  `response_item`, `event_msg`, `turn_context`, `session_meta`, `compacted`.
+  Tool calls are `function_call` (`arguments` is a JSON string) or
+  `custom_tool_call` (`input`), each with a `*_output` carrying `call_id`.
+  `function_call_output` serialises only its output; `success` is not written.
+- Named skill: `SkillInstructions` in `ext/skills/src/fragments.rs` renders the
+  `<skill>` user message. The text is the whole file read from disk,
+  frontmatter included. It is cut at 8000 bytes (`MAX_SKILL_PROMPT_BYTES`) for
+  plugin skills.
+- Hook output:
+  - additionalContext is recorded as a `developer` message
+    (`core/src/hook_runtime.rs`).
+  - A PreToolUse deny becomes the tool output `Command blocked by PreToolUse
+    hook: {reason}. Command: …` or `Tool call blocked by PreToolUse hook:
+    {reason}. Tool: …`.
+- Assumptions that matched: the date-sharded path, the call and output shapes,
+  and the refusal text inside the tool output.
+
+Executed:
+
+- `node --test "tests/*.test.mjs"`: 60/60. Five new tests fail on the previous
+  hook and script. `node scripts/check.mjs`: pass.
+- Claude Code 2.1.332, haiku, `--plugin-dir`, a throwaway Maven project under
+  the home directory (not the temp directory). Ten `claude -p` runs, about
+  $0.06, plus two interactive sessions:
+  - A main-code Edit was refused; the agent loaded use-modern-java and the
+    retry went through.
+  - `/java-engineering-skills:use-modern-java`, in `-p` and interactively, was
+    followed by a main-code Edit with no refusal.
+  - A fresh session's `java.version` 17 → 21 in `pom.xml`, `-p` and
+    interactive, went through with one use-modern-java reminder.
+  - The same edit in the session that had typed the slash command gave no
+    reminder, because the skill was already loaded.
+  - In one session, a Boot parent change reminded about
+    spring-boot-engineering and a Gradle `VERSION_21` about use-modern-java. A
+    third build edit gave none (once per session).
+  - A bare `<version>3.2.0</version>` line edit gave no reminder on the
+    previous hook. With this change the same run got the spring-boot-engineering
+    reminder.
+  - A test-file Edit was refused naming java-testing and use-modern-java; both
+    loaded, and the retry went through.
+  - An Edit whose `old_string` was not in the file failed in Claude Code's own
+    input check, before PreToolUse ran. The previous statistics counted it as
+    an edit.
+
+Not verified:
+
+- Any real Codex rollout or Codex run.
+- In Codex, the model loading a skill by reading `SKILL.md` with a command
+  other than `cat`, `type` or `Get-Content` (for example `sed -n 1,200p`) is
+  not recognised by the hook. How often that happens was not measured.
+- A failed tool call in Codex cannot be told apart in the rollout, so a failed
+  Codex edit still counts.
+- `use-modern-java/SKILL.md` is 8497 bytes, above Codex's 8000-byte cut, so a
+  `$use-modern-java` mention injects a truncated body and does not count as
+  loaded. The skill text is outside this change.
+
 ## Unreleased — OceanBase no-plugin baseline, a Java 25 executor case, and probes for java-concurrency and java-design — 2026-11-26
 
 Changed:
