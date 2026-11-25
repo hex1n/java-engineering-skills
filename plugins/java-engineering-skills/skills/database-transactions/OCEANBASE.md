@@ -110,28 +110,44 @@ Replace MySQL INSTANT/INPLACE reasoning with the target version's online and
 offline lists. The 4.2.1 online list includes increasing a column type's
 length or precision as a metadata-only change, with a longer `INT`, a longer
 `VARCHAR`, and a `NUMBER`-class conversion as its examples; it also lists
-renaming a column and adding one at the end. Neither page names a `DECIMAL`
-precision-and-scale widening such as `decimal(16,2)` to `decimal(20,4)`, and
-the column-type rules make a change offline when an index, primary key,
-foreign key, or partition key references the column, or when it switches
-`SIGNED` and `UNSIGNED`. Treat such a widening as unconfirmed: rehearse it on
-the same version and schema, check whether the table was rebuilt (its
-`table_id` changed), and plan for the offline case until that shows otherwise.
-In 4.2.1 these are offline: any other column type change, adding or
-dropping a primary key or making a column the primary key, dropping a column (`VIRTUAL` ones included),
-adding a column other than at the end or reordering columns, converting the
-charset, changing partitioning rules, adding an auto-increment column or
-making a column auto-increment, and adding or dropping a stored generated
-column. Dropping or truncating a partition and truncating or dropping a table
-are offline too, waiting on active transactions; adding a partition or a
-`VIRTUAL` column is metadata-only. The official page is the full list. A statement that mixes one offline change with
-online ones runs offline. Offline DDL rebuilds the table through a hidden
-table and changes its `table_id`. The 4.3.5 documentation disallows DML while
-it runs and the 4.2.1 page does not say; plan a write outage and rehearse it.
+renaming a column and adding one at the end. The documentation does not name
+`DECIMAL`. Measured on OceanBase CE 4.2.1.10, single node, on tables created
+on that version with about a million rows: a `DECIMAL` change that keeps or
+raises both the scale and the integer digits (precision minus scale), such as
+`decimal(16,2)` to `decimal(20,4)`, `decimal(19,2)`, or `decimal(38,2)`, ran
+online: the `table_id` stayed the same, it took about 0.05 s whatever the row
+count, and concurrent single-row writes were not delayed. That held with the
+column in a secondary index, a unique key, the primary key, or the partition
+key. Lowering the scale or the precision, or raising the scale without raising
+the precision by at least as much, rebuilt the table, and fails when a stored
+value no longer fits. On another version, a distributed cluster, or a table
+created before an upgrade, rehearse the statement on a copy and check that the
+`table_id` did not change before treating the widening as online.
+
+Other column type changes are offline in 4.2.1. The column-type rules page
+also makes a change offline when an index, primary key, foreign key, or
+partition key references the column, or when it switches `SIGNED` and
+`UNSIGNED`; on 4.2.1.10 that did not hold for the `DECIMAL` widenings above or
+for lengthening an indexed `VARCHAR` (a foreign-key column was not tested), so
+rehearse before relying on either reading. Also offline: adding or dropping a primary key or making a column the primary key,
+dropping a column (`VIRTUAL` ones included), adding a column other than at the
+end or reordering columns, converting the charset, changing partitioning
+rules, adding an auto-increment column or making a column auto-increment, and
+adding or dropping a stored generated column. Dropping or truncating a
+partition and truncating or dropping a table are offline too, waiting on
+active transactions; adding a partition or a `VIRTUAL` column is
+metadata-only. The official page is the full list. A statement that mixes one
+offline change with online ones runs offline. Offline DDL rebuilds the table
+through a hidden table and changes its `table_id`. The 4.3.5 documentation
+disallows DML while it runs and the 4.2.1 page does not say; on the same
+4.2.1.10 single node, single-row writes from another session waited until the
+offline DDL finished (about 8 s for a million rows). Plan a write outage and
+rehearse it.
 
 Sources: [4.2.1 online and offline DDL](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000000252799),
 [column type changes](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000000221444),
-[4.3.5 DDL blocking](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000002017083).
+[4.3.5 DDL blocking](https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000002017083);
+the 4.2.1.10 measurements are recorded in VALIDATION.md.
 
 ## Partitioned tables and index features
 
