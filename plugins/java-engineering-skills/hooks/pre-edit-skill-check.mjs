@@ -42,8 +42,10 @@ const CONTENT_RULES = [
 
 // Build files change the Java baseline or the Spring Boot line with one value.
 // They remind only, and only when the written text names that setting: a new
-// dependency or plugin says nothing about either. A bare `<version>` line, or
-// an in-place `sed -i` that carries no written text, is not recognised.
+// dependency or plugin says nothing about either. An Edit of a pom.xml
+// `<version>` line is judged by the <parent> or <dependency> block it sits in
+// (pomVersionOwners). A shell edit of that line, or an in-place `sed -i` that
+// carries no written text, is not recognised.
 const BUILD_FILE = /(^|\/)(pom\.xml|build\.gradle(\.kts)?|gradle\.properties|libs\.versions\.toml)$/i;
 const BUILD_RULES = [
   { skill: 'use-modern-java', pattern: /<(java\.version|maven\.compiler\.(source|target|release|testSource|testTarget|testRelease)|release|testRelease|source|target)>\s*((1\.)?\d+|\$\{[\w.-]+\})\s*<\/|\b(source|target)Compatibility\b|\bJavaVersion\.VERSION_|\blanguageVersion\b|\boptions\.release\b|\brelease\.set\s*\(|\bjavaVersion\b/ },
@@ -446,6 +448,30 @@ function strings(value, out = []) {
   return out;
 }
 
+/**
+ * The <parent> or <dependency> blocks, as they stand in the file, whose
+ * <version> an Edit replaces. A Boot upgrade is usually that one line, which
+ * names neither Spring Boot nor a setting; the block around it does.
+ */
+export function pomVersionOwners(text, replacements) {
+  if (typeof text !== 'string') return [];
+  const blocks = [];
+  for (const { old_string: old, new_string: now } of replacements) {
+    const at = old ? text.indexOf(old) : -1;
+    if (at < 0 || !/<version>/.test(old + now)) continue;
+    // Judge by the first <version> the replacement touches; the old text may
+    // itself carry the block's opening or closing tag.
+    const anchor = at + Math.max(0, old.indexOf('<version>'));
+    const before = text.slice(0, anchor);
+    const open = Math.max(before.lastIndexOf('<parent>'), before.lastIndexOf('<dependency>'));
+    if (open < 0 || /<\/(parent|dependency)>/.test(before.slice(open))) continue;
+    const tag = text.startsWith('<parent>', open) ? '</parent>' : '</dependency>';
+    const close = text.indexOf(tag, anchor);
+    if (close >= 0) blocks.push(text.slice(open, close + tag.length));
+  }
+  return blocks;
+}
+
 // Parse apply_patch text, raw or embedded as an escaped string literal.
 function patchEdits(text) {
   const edits = [];
@@ -479,8 +505,9 @@ export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {}
   };
   const keep = edits => edits.map(edit => ({ ...edit, path: resolvePath(edit.path) }))
     .filter(edit => !isScratch(edit.path));
-  // A diff file that a patch command is about to apply; large or missing files stay unresolved.
-  const readDiff = file => {
+  // A diff file that a patch command is about to apply, or a pom.xml an Edit
+  // changes; large or missing files stay unresolved.
+  const readSmall = file => {
     try {
       const resolved = resolvePath(file);
       return fs.statSync(resolved).size <= 4 * 1024 * 1024 ? fs.readFileSync(resolved, 'utf8') : null;
@@ -488,7 +515,9 @@ export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {}
   };
   const file = input.file_path || input.notebook_path;
   if (file && /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(toolName || '')) {
-    const content = [input.new_string, input.content, input.new_source, ...(input.edits || []).map(edit => edit.new_string)]
+    const replacements = [input, ...(input.edits || [])].filter(edit => typeof edit.old_string === 'string' && typeof edit.new_string === 'string');
+    const owners = /(^|[\\/])pom\.xml$/i.test(file) && replacements.length ? pomVersionOwners(readSmall(file), replacements) : [];
+    const content = [input.new_string, input.content, input.new_source, ...(input.edits || []).map(edit => edit.new_string), ...owners]
       .filter(text => typeof text === 'string').join('\n');
     return keep([{ path: file, content }]);
   }
@@ -519,7 +548,7 @@ export function extractEdits(toolName, toolInput, { cwd, onUnresolved = () => {}
       const target = dataTarget(text, region);
       if (target) add(posix(target.replace(/\\\\/g, '\\')), region.body);
     }
-    for (const token of shellTargets(codeOnly(text, regions), onUnresolved, readDiff)) add(posix(token.replace(/\\\\/g, '\\')));
+    for (const token of shellTargets(codeOnly(text, regions), onUnresolved, readSmall)) add(posix(token.replace(/\\\\/g, '\\')));
   }
   return keep(edits);
 }
@@ -631,11 +660,25 @@ function containsSkill(text, skill, { frontmatter = true } = {}) {
  * (with `sourceToolUseID`) and for a skill the user typed as a slash command
  * (without it, and with no tool call at all). Only the host writes meta
  * records. Layout observed in Claude Code 2.1.332 transcripts.
+ *
+ * Codex puts a skill the user names (`$use-modern-java`) into a user message of
+ * its own: `<skill>\n<name>…</name>\n<path>…/skills/<name>/SKILL.md</path>\n`,
+ * the file's text, then `</skill>` (SkillInstructions in openai/codex
+ * ext/skills/src/fragments.rs). It counts only when the whole current file is
+ * there: Codex cuts a plugin skill's text at 8000 bytes. Read from the source,
+ * not from a real rollout.
  * Returns {skills, toolUseId} or null.
  */
 export function injectedSkills(line) {
   let record;
   try { record = JSON.parse(line); } catch { return null; }
+  const payload = record?.type === 'response_item' ? record.payload : null;
+  if (payload?.type === 'message' && payload.role === 'user' && Array.isArray(payload.content)) {
+    const text = payload.content.map(item => (typeof item?.text === 'string' ? item.text : '')).join('\n');
+    const skills = [...text.matchAll(/<skill>\s*<name>[^<\n]*<\/name>\s*<path>[^<\n]*[\\/]skills[\\/]([a-z-]+)[\\/]SKILL\.md<\/path>([\s\S]*?)<\/skill>/g)]
+      .filter(([, skill, body]) => SKILL_NAMES.includes(skill) && containsSkill(body, skill)).map(match => match[1]);
+    return skills.length ? { skills: [...new Set(skills)], toolUseId: null } : null;
+  }
   if (record?.type !== 'user' || record.isMeta !== true) return null;
   const content = record.message?.content;
   const text = typeof content === 'string' ? content

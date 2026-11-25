@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, codexChildRollouts, decide, extractEdits, injectedSkills, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { classify, codexChildRollouts, decide, extractEdits, injectedSkills, isScratch, loadedInTranscript, pomVersionOwners, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
@@ -70,6 +70,47 @@ test('build files remind only when the written text changes the Java level or th
   assert.equal(first.block, null);
   assert.match(first.context, /use-modern-java/);
   assert.equal(decide(edit('/repo/pom.xml', '<java.version>21</java.version>'), first.state).context, null);
+});
+
+test('an Edit of a pom.xml <version> line is judged by the block it sits in', t => {
+  // Measured with claude -p (2.1.332, haiku) on 2026-11-25: asked to raise the
+  // Boot parent, the agent replaced only the `<version>` line and got no reminder.
+  const pom = [
+    '<project>',
+    '  <parent>', '    <groupId>org.springframework.boot</groupId>', '    <artifactId>spring-boot-starter-parent</artifactId>', '    <version>3.2.0</version>', '  </parent>',
+    '  <version>1.0</version>',
+    '  <dependencyManagement><dependencies>',
+    '    <dependency>', '      <groupId>org.springframework.boot</groupId>', '      <artifactId>spring-boot-dependencies</artifactId>', '      <version>3.2.0</version>', '      <type>pom</type>', '    </dependency>',
+    '  </dependencies></dependencyManagement>',
+    '  <dependencies>',
+    '    <dependency>', '      <groupId>com.google.guava</groupId>', '      <artifactId>guava</artifactId>', '      <version>33.0.0-jre</version>', '    </dependency>',
+    '  </dependencies>',
+    '</project>',
+  ].join('\n');
+  const owners = (from, to) => classify([{ path: '/repo/pom.xml', content: pomVersionOwners(pom, [{ old_string: from, new_string: to }]).join('\n') }])
+    .map(hit => hit.skill);
+  assert.deepEqual(owners('    <version>3.2.0</version>\n  </parent>', '    <version>3.3.5</version>\n  </parent>'), ['spring-boot-engineering']);
+  assert.deepEqual(owners('      <version>3.2.0</version>\n      <type>pom</type>', '      <version>3.3.5</version>\n      <type>pom</type>'), ['spring-boot-engineering']);
+  // The project's own version and another library's version are neither concern.
+  assert.deepEqual(owners('  <version>1.0</version>', '  <version>1.1</version>'), []);
+  assert.deepEqual(owners('<version>33.0.0-jre</version>', '<version>33.3.1-jre</version>'), []);
+  // A line that is not in the file, or no file, adds nothing.
+  assert.deepEqual(pomVersionOwners(pom, [{ old_string: '<version>9.9.9</version>', new_string: '<version>9.9.10</version>' }]), []);
+  assert.deepEqual(pomVersionOwners(null, [{ old_string: '<version>3.2.0</version>', new_string: '<version>3.3.5</version>' }]), []);
+
+  // extractEdits reads the pom from disk. The /src/ segment keeps a project
+  // under the temp directory from counting as scratch.
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-pom-')), 'src', 'app');
+  t.after(() => fs.rmSync(path.dirname(path.dirname(dir)), { recursive: true, force: true }));
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'pom.xml'), pom);
+  const edit = input => skills(extractEdits(input.edits ? 'MultiEdit' : 'Edit', { file_path: 'pom.xml', ...input }, { cwd: dir }));
+  assert.deepEqual(edit({ old_string: '    <version>3.2.0</version>\n  </parent>', new_string: '    <version>3.3.5</version>\n  </parent>' }), ['spring-boot-engineering:soft']);
+  assert.deepEqual(edit({ old_string: '  <version>1.0</version>', new_string: '  <version>1.1</version>' }), []);
+  assert.deepEqual(skills(extractEdits('Edit', { file_path: 'missing/pom.xml', old_string: '<version>3.2.0</version>', new_string: '<version>3.3.5</version>' }, { cwd: dir })), []);
+  // MultiEdit carries its replacements in edits[].
+  assert.deepEqual(edit({ edits: [{ old_string: '  <version>1.0</version>', new_string: '  <version>1.1</version>' },
+    { old_string: '      <version>3.2.0</version>\n      <type>pom</type>', new_string: '      <version>3.3.5</version>\n      <type>pom</type>' }] }), ['spring-boot-engineering:soft']);
 });
 
 test('content rules remind from the written text only', t => {
@@ -252,6 +293,31 @@ test('a skill the user typed as a slash command counts once Claude Code injects 
   assert.deepEqual([...loadedInTranscript(transcript, ['use-modern-java', 'java-testing'])], ['use-modern-java']);
   const result = decide(edit('/repo/src/main/java/a/Foo.java'), {}, { findLoaded: wanted => loadedInTranscript(transcript, wanted) });
   assert.equal(result.block, null);
+});
+
+test('a skill the user names in Codex counts once the host puts the whole file in a <skill> message', () => {
+  // Layout from the openai/codex source (2026-11-25), not from a real rollout:
+  // SkillInstructions in ext/skills/src/fragments.rs renders a user message
+  // `<skill>\n<name>…</name>\n<path>…</path>\n{SKILL.md}\n</skill>`, and the text
+  // is cut at 8000 bytes for a plugin skill (render.rs MAX_SKILL_PROMPT_BYTES).
+  const fragment = (skill, text = body(skill), { role = 'user', dir = skill } = {}) => JSON.stringify({ timestamp: '2026-11-25T00:00:00.000Z', type: 'response_item',
+    payload: { type: 'message', role, content: [{ type: 'input_text', text: `<skill>\n<name>java-engineering-skills:${skill}</name>\n<path>/home/me/.codex/plugins/cache/x/skills/${dir}/SKILL.md</path>\n${text}\n</skill>` }] } });
+  assert.deepEqual(injectedSkills(fragment('java-testing')), { skills: ['java-testing'], toolUseId: null });
+  assert.deepEqual(injectedSkills(fragment('java-testing', body('java-testing').replace(/\n/g, '\r\n'))), { skills: ['java-testing'], toolUseId: null });
+  // A cut body, another skill's body under this path, or a message the host did not write as the user's.
+  assert.equal(injectedSkills(fragment('java-testing', Buffer.from(body('java-testing')).subarray(0, 400).toString())), null);
+  assert.equal(injectedSkills(fragment('java-testing', body('redis-engineering'))), null);
+  assert.equal(injectedSkills(fragment('java-testing', body('java-testing'), { role: 'developer' })), null);
+  assert.equal(injectedSkills(fragment('java-testing', body('java-testing'), { dir: 'other-plugin-skill' })), null);
+  // The user's own `$java-testing` text is not the skill.
+  assert.equal(injectedSkills(JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '$java-testing fix FooTest' }] } })), null);
+
+  const transcript = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-codex-skill-'));
+  try {
+    const file = path.join(transcript, 'rollout.jsonl');
+    fs.writeFileSync(file, fragment('java-testing'));
+    assert.deepEqual([...loadedInTranscript(file, ['java-testing', 'use-modern-java'])], ['java-testing']);
+  } finally { fs.rmSync(transcript, { recursive: true, force: true }); }
 });
 
 test('hard rules keep blocking until loaded; only soft rules remind once', () => {
