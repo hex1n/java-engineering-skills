@@ -76,7 +76,9 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 | `src/test/**/*.java` | `java-testing` | 同上 |
 | MyBatis mapper XML，`src/`、`db/`、`sql/`、`migration(s)/`、`schema/` 下的 `*.sql` | `database-transactions` | 同上 |
 | 本次写入的内容（不含文件原有 import）涉及 Spring 代理与配置、JDBC/MyBatis/JPA、Redis、Kafka/RabbitMQ/RocketMQ、`java.util.concurrent`、对外接口注解 | 对应 skill | 提醒 |
+| `pom.xml`、`build.gradle(.kts)`、`gradle.properties`、`libs.versions.toml` 中本次写入的内容设置 Java 级别（`java.version`、`release`/`source`/`target`、`sourceCompatibility`、toolchain `languageVersion` 等）或 Spring Boot 版本（parent、BOM、插件版本、`spring-boot.version`） | `use-modern-java` / `spring-boot-engineering` | 提醒 |
 
+`src/test/**/*.java` 同时命中前两行：测试源集同样按模块的 `release`（或 `testRelease`）编译，一次拦截列出两个 skill，加载一轮即可。构建文件只看写入文本：只加依赖或插件不提醒，只改一行 `<version>`、或 `sed -i` 这类不带写入文本的修改也认不出来。
 硬规则的重试不会消耗检查；只有软提醒在每个会话（子代理单独计）最多出现一次。
 加载状态依据同一代理的调用及成功回执：Claude Code 的 `Skill` 成功结果，或读取
 `SKILL.md` 后返回当前插件完整正文的结果。仅提及路径、尚未完成、失败、截断的

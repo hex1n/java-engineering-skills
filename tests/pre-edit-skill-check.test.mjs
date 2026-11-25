@@ -31,6 +31,47 @@ test('path rules separate tests, production code, SQL, and scratch files', () =>
   assert.deepEqual(extractEdits('Write', { file_path: 'C:\\Users\\me\\AppData\\Local\\Temp\\x\\FooTest.java', content: '' }), []);
 });
 
+test('build files remind only when the written text changes the Java level or the Boot line', () => {
+  const pom = content => skills([{ path: '/repo/app/pom.xml', content }]);
+  // A dependency or a plugin without a version setting is neither concern.
+  assert.deepEqual(pom('<dependency>\n  <groupId>org.springframework.boot</groupId>\n  <artifactId>spring-boot-starter-web</artifactId>\n</dependency>'), []);
+  assert.deepEqual(pom('<plugin>\n  <groupId>org.springframework.boot</groupId>\n  <artifactId>spring-boot-maven-plugin</artifactId>\n</plugin>'), []);
+  assert.deepEqual(pom('<version>3.2.0</version>'), []);
+  assert.deepEqual(pom('<java.version>17</java.version>'), ['use-modern-java:soft']);
+  assert.deepEqual(pom('<maven.compiler.release>11</maven.compiler.release>'), ['use-modern-java:soft']);
+  assert.deepEqual(pom('<configuration>\n  <release>${java.version}</release>\n</configuration>'), ['use-modern-java:soft']);
+  assert.deepEqual(pom('<source>1.8</source>\n<target>1.8</target>'), ['use-modern-java:soft']);
+  assert.deepEqual(pom('<parent>\n  <groupId>org.springframework.boot</groupId>\n  <artifactId>spring-boot-starter-parent</artifactId>\n  <version>2.7.18</version>\n</parent>'),
+    ['spring-boot-engineering:soft']);
+  assert.deepEqual(pom('<spring-boot.version>2.7.18</spring-boot.version>\n<java.version>11</java.version>'),
+    ['spring-boot-engineering:soft', 'use-modern-java:soft']);
+
+  const gradle = (file, content) => skills([{ path: `/repo/${file}`, content }]);
+  assert.deepEqual(gradle('build.gradle', "implementation 'org.springframework.boot:spring-boot-starter-web'"), []);
+  assert.deepEqual(gradle('build.gradle', "id 'org.springframework.boot' version '2.7.18'"), ['spring-boot-engineering:soft']);
+  assert.deepEqual(gradle('build.gradle.kts', 'id("org.springframework.boot") version "3.2.0"'), ['spring-boot-engineering:soft']);
+  assert.deepEqual(gradle('build.gradle', 'sourceCompatibility = JavaVersion.VERSION_17'), ['use-modern-java:soft']);
+  assert.deepEqual(gradle('build.gradle.kts', 'java { toolchain { languageVersion.set(JavaLanguageVersion.of(21)) } }'), ['use-modern-java:soft']);
+  assert.deepEqual(gradle('gradle.properties', 'springBootVersion=2.7.18'), ['spring-boot-engineering:soft']);
+  assert.deepEqual(gradle('gradle/libs.versions.toml', '[versions]\nspring-boot = "3.2.0"'), ['spring-boot-engineering:soft']);
+  // The same text in another XML file is not a build setting.
+  assert.deepEqual(skills([{ path: '/repo/src/main/resources/logback.xml', content: '<java.version>17</java.version>' }]), []);
+
+  // Shell writes name the build file; a heredoc body is the written text.
+  const paths = command => extractEdits('Bash', { command }, { cwd: '/repo' });
+  const written = paths("cat > build.gradle.kts <<'EOF'\nplugins { id(\"org.springframework.boot\") version \"3.2.0\" }\nEOF");
+  assert.deepEqual(written.map(edit => edit.path), ['/repo/build.gradle.kts']);
+  assert.deepEqual(skills(written), ['spring-boot-engineering:soft']);
+  // An in-place edit carries no written text, so it does not remind.
+  assert.deepEqual(skills(paths("sed -i 's/2.7.18/3.2.0/' pom.xml")), []);
+
+  // A reminder is soft: the edit goes ahead and the reminder is shown once.
+  const first = decide(edit('/repo/pom.xml', '<java.version>17</java.version>'), {});
+  assert.equal(first.block, null);
+  assert.match(first.context, /use-modern-java/);
+  assert.equal(decide(edit('/repo/pom.xml', '<java.version>21</java.version>'), first.state).context, null);
+});
+
 test('content rules remind from the written text only', t => {
   const hits = classify([{ path: '/repo/src/main/java/a/Svc.java', content: '@Transactional\nvoid run(RLock lock) {}' }]);
   assert.deepEqual(hits.map(hit => hit.skill).sort(),

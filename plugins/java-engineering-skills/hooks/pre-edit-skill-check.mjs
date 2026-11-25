@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 export const PLUGIN = 'java-engineering-skills';
 
 // Path rules decide from the file alone. Hard rules require a completed load.
+// A test source matches both java-testing and use-modern-java on purpose: test
+// sources compile at the module's own release (or testRelease) too, and one
+// refusal names both skills, so the agent loads them in one round trip.
 const PATH_RULES = [
   { skill: 'java-testing', hard: true, test: p => /\.java$/i.test(p) && /(^|\/)src\/test\//.test(p) },
   { skill: 'database-transactions', hard: true, test: (p, text) =>
@@ -37,7 +40,17 @@ const CONTENT_RULES = [
   { skill: 'java-api-security', pattern: /@(RestController|RequestMapping|GetMapping|PostMapping|PutMapping|DeleteMapping|SofaService|DubboService|PreAuthorize|Secured)\b/ },
 ];
 
-const SKILL_NAMES = [...new Set([...PATH_RULES, ...CONTENT_RULES].map(rule => rule.skill))];
+// Build files change the Java baseline or the Spring Boot line with one value.
+// They remind only, and only when the written text names that setting: a new
+// dependency or plugin says nothing about either. A bare `<version>` line, or
+// an in-place `sed -i` that carries no written text, is not recognised.
+const BUILD_FILE = /(^|\/)(pom\.xml|build\.gradle(\.kts)?|gradle\.properties|libs\.versions\.toml)$/i;
+const BUILD_RULES = [
+  { skill: 'use-modern-java', pattern: /<(java\.version|maven\.compiler\.(source|target|release|testSource|testTarget|testRelease)|release|testRelease|source|target)>\s*((1\.)?\d+|\$\{[\w.-]+\})\s*<\/|\b(source|target)Compatibility\b|\bJavaVersion\.VERSION_|\blanguageVersion\b|\boptions\.release\b|\brelease\.set\s*\(|\bjavaVersion\b/ },
+  { skill: 'spring-boot-engineering', pattern: /spring-boot-(starter-parent|dependencies|gradle-plugin)\b|<spring-boot\.version>|\bspringBootVersion\b|["']org\.springframework\.boot["']\s*\)?\s*version\b|^\s*spring-?boot(-version)?\s*=\s*["'\d]/im },
+];
+
+const SKILL_NAMES = [...new Set([...PATH_RULES, ...CONTENT_RULES, ...BUILD_RULES].map(rule => rule.skill))];
 const posix = file => file.replace(/\\/g, '/');
 
 // Scratch and temp files are investigation artifacts, not project code. The
@@ -63,7 +76,7 @@ const TEMP_ROOTS = tempRoots(os.tmpdir());
 const PROJECT_LAYOUT = /\/(?:src|flyway|liquibase)\/|\/db\/migration\//i;
 export const isScratch = (file, roots = TEMP_ROOTS) => !PROJECT_LAYOUT.test(posix(file))
   && (SCRATCH.test(posix(file)) || roots.some(root => `${posix(file).toLowerCase()}/`.startsWith(root)));
-const FILE_TOKEN = /(?<![\w$.:\\/-])[\w.:\\/-]+\.(java|sql|xml|ya?ml|properties)\b/gi;
+const FILE_TOKEN = /(?<![\w$.:\\/-])[\w.:\\/-]+\.(java|sql|xml|ya?ml|properties|gradle|kts|toml)\b/gi;
 // Shell forms that write the files they name. Reads are not gated. Matched on
 // the segment with quoted text masked, so the in-place flag may come after
 // other options (`sed -E -i`, `sed -e '…' -i`, `perl -p -i`) but a commit
@@ -575,6 +588,7 @@ export function classify(edits) {
   };
   for (const { path: file, content = '' } of edits) {
     for (const rule of PATH_RULES) if (rule.test(file, content)) add(rule.skill, rule.hard, file);
+    if (BUILD_FILE.test(file)) for (const rule of BUILD_RULES) if (rule.pattern.test(content)) add(rule.skill, false, file);
     if (!/\.java$/i.test(file)) continue;
     for (const rule of CONTENT_RULES) if (rule.pattern.test(content)) add(rule.skill, false, file);
   }
