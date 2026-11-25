@@ -60,7 +60,8 @@ test('build files remind only when the written text changes the Java level or th
   // Shell writes name the build file; a heredoc body is the written text.
   const paths = command => extractEdits('Bash', { command }, { cwd: '/repo' });
   const written = paths("cat > build.gradle.kts <<'EOF'\nplugins { id(\"org.springframework.boot\") version \"3.2.0\" }\nEOF");
-  assert.deepEqual(written.map(edit => edit.path), ['/repo/build.gradle.kts']);
+  // Relative to the cwd, as in the diff test: on Windows a POSIX cwd resolves onto the current drive.
+  assert.deepEqual(written.map(edit => path.relative('/repo', edit.path).replace(/\\/g, '/')), ['build.gradle.kts']);
   assert.deepEqual(skills(written), ['spring-boot-engineering:soft']);
   // An in-place edit carries no written text, so it does not remind.
   assert.deepEqual(skills(paths("sed -i 's/2.7.18/3.2.0/' pom.xml")), []);
