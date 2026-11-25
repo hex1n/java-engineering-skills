@@ -1,0 +1,8 @@
+---
+type: llm
+focus: last_message
+---
+
+OceanBase 4.x tables default to ORDER auto-increment mode with an auto_increment_cache_size of 1,000,000, and values still jump when the leader restarts, crashes, or switches, which explains the million-sized jumps in `refund_event`. Tables created before 4.0 (like `order_event`, created on 3.2) use NOORDER mode, which guarantees only uniqueness, not increasing order across inserts, so a row can commit with an id below a `lastId` already read and the `id > :lastId` watermark skips it. In both modes, ids cannot be used for insertion order, row counts, or deletions; `max(id) - min(id) + 1` is not a count. Even with ordered ids, concurrent transactions can commit out of id order.
+
+Pass when the answer (1) attributes the lost `order_event` rows to the pre-4.0 table's NOORDER auto-increment mode, whose ids are unique but not increasing in insert order (or to ids not following commit order, while naming the NOORDER mode of a table created before 4.0), (2) attributes the `refund_event` jumps to the auto-increment cache being discarded on leader restart or switch in the 4.x ORDER mode, (3) says ids must not be used for counts, and (4) gives a sync design that does not depend on id order, such as a change-capture feed, an outbox with its own committed sequence, or a time watermark with an overlap window plus idempotent upsert on the primary key. Fail if the answer explains the lost rows only with MySQL InnoDB reasoning (innodb_autoinc_lock_mode, gap from rollbacks) without naming the OceanBase NOORDER mode of pre-4.0 tables, or proposes keeping the `id > :lastId` watermark as is.
