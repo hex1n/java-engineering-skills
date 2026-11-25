@@ -200,13 +200,43 @@ node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 ```
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例
-（`prompt.md` 加 `graders/*.md`）：OceanBase 抢任务、Boot 2.3 升 2.7、JVM
-jstat 误读、Spring 装配证据分析、release 8 模块的写法改造、JUnit 4 测试未被
-发现、Redis 锁保护扣款、订单接口越权和事务不回滚，各自检查对应 skill 是否
-触发以及结论是否避开了埋点。Spring 分析场景还检查纯计算是否被不必要地要求做容器验证。
-该命令目前是早期访问功能，账号未开通时会提示 `early access`；开通后
-`claude plugin eval ./plugins/java-engineering-skills` 即可运行。这些用例至今
-还没有被评测器实际跑过（见 VALIDATION.md），目前只是写好的检查，不是已通过的结果。
+（`prompt.md` 加 `graders/*.md`），按标签分四组：
+
+- `discriminating`：不装插件时模型默认答错、答案在 skill 文本里的题（OceanBase
+  抢任务、OceanBase 隔离级别与锁读、OceanBase 自增 id 增量同步、Boot 2.6.0 下的
+  Kafka 生产者默认值、JVM jstat 与 attach）。插件的价值主要看这一组的 Δ。
+- `regression`：不装插件也能答对的题（Boot 2.3 升 2.7、Spring 装配证据、release 8
+  写法、JUnit 4 测试未被发现、Redis 锁扣款、订单越权、事务不回滚），用来发现
+  skill 改动把答案带偏。
+- `negative`：不该触发的场景（Node.js 内存、Python + PostgreSQL 死锁），以及
+  纯语言改写时相邻 skill 不抢答。用 `tool_used` 的 `min: 0`、`max: 0`、`arm: both`
+  断言没有调用。
+- `zh`：前两组旧题的中文版，复用英文 grader，用来测中文触发词。
+
+运行方法：
+
+```sh
+cd plugins/java-engineering-skills
+P=$(pwd)
+claude plugin eval . --judge-model sonnet --runs 3 -j 4 \
+  --tag discriminating regression negative \
+  --allow-tools "Read(/$P/**)" "Grep(/$P/**)" "Glob(/$P/**)"
+```
+
+- `--allow-tools` 必须加：eval 沙箱默认只让 agent 读工作目录，skill 触发后读
+  自己的参考文件（`OCEANBASE.md`、`CONFIGURATION.md` 等）会被拒，装插件组的
+  成绩会被系统性压低。路径要以 `//` 开头（`$P` 本身以 `/` 开头，前面再加一个
+  `/`），单斜杠不生效。
+- 默认会多跑一组不装插件的对照（with-without），报告里的 Δ 就是插件增益；
+  `tool_used: Skill` 的触发检查在这种模式下只作指标，不计分。
+- 默认 judge 是 haiku，实测会在 2:1 票上摇摆；正式结果用 `--judge-model sonnet`
+  和每题 3 轮。只跑中文版用 `--tag zh`。
+- 结果写在 `evals/results/`，已加入 `.gitignore`。
+
+CI 不跑这些 eval：每次运行都要用真实模型凭据调用 Claude，按次计费，结果也有
+随机性，不适合作为每个 PR 的通过条件。改 skill 文本后在本机按上面的命令跑，
+把结果记进 VALIDATION.md。该命令是早期访问功能，账号未开通时会提示
+`early access`。实测结果见 VALIDATION.md。
 
 离线检查覆盖两个插件清单及 marketplace 的对应关系、所有 skill 的包内引用、
 未被入口引用的资料，以及现代 Java 规则索引与正文的版本一致性。

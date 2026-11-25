@@ -67,8 +67,13 @@ topic count and passing package checks are not measures of semantic quality.
 Run `node scripts/check.mjs`, `node --test tests/*.test.mjs`,
 and the available runtime manifest validators
 documented in the README. When `claude plugin eval` is available to the
-account, run the cases under `plugins/java-engineering-skills/evals/` and add
-a case for any new trigger or trap the change introduces. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
+account, run the cases under `plugins/java-engineering-skills/evals/` with the
+`--allow-tools` read grant shown in the README, and add a case for any new
+trigger or trap the change introduces. Tag a new case `discriminating` only
+after a run without the plugin answers it wrong and a run with the plugin
+answers it right; otherwise tag it `regression`. Add a `negative` case, with a
+`tool_used` grader set to `min: 0`, `max: 0`, `arm: both`, when a description
+change could make a skill fire on work outside its scope. The scripts require Node.js 22+ and use built-in modules only; no npm install is needed.
 
 For changed examples, compile a complete surrounding example at the claimed
 release and test the material behavior boundary. A modern JDK's `--release`

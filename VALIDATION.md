@@ -1,5 +1,80 @@
 # Validation record
 
+## Unreleased — Discriminating evals, negative cases, upgrade routing — 2026-11-25
+
+The first eval run (judge haiku, two runs per case) showed that seven of the
+nine cases passed without the plugin, so they could not show what the plugin
+adds. This change keeps them as `regression` cases and adds cases a run without
+the plugin answers wrong. A case is tagged `discriminating` only after that has
+been observed. Candidates that passed without the plugin were dropped:
+CompletableFuture on two CPUs, Connector/J upsert affected rows, HttpClient
+request timeout scope, Redisson Spring Cache TTL, transactional event listener
+upgrade, Redisson lock with replica sync, record pattern accessor exceptions,
+and CallerRunsPolicy after shutdown.
+
+Added cases:
+
+- `oceanbase-isolation-and-locking-reads`, `oceanbase-auto-increment-sync`
+  (database-transactions): OceanBase 4.2.1 MySQL mode, covering REPEATABLE READ
+  as snapshot isolation (error 6235), no READ UNCOMMITTED, shared locks
+  emulated as write locks, ORDER BY with FOR UPDATE locking every selected
+  row, no EXPLAIN ANALYZE or SKIP LOCKED, and ORDER versus NOORDER
+  auto-increment with a cached range that jumps on leader switch.
+- `kafka-idempotence-on-boot-2.6.0` (messaging-reliability): kafka-clients
+  3.0.0/3.1.0 leave idempotence off unless it is set explicitly (KAFKA-13598).
+- Negative cases: a Node.js memory leak and a Python/PostgreSQL deadlock must
+  load no skill of this plugin (`tool_used`, `min: 0`, `max: 0`, `arm: both`).
+  A plain Java 21 modernization must load no framework skill.
+
+Other changes:
+
+- The jvm grader's attach clause is narrowed to two points.
+- The Boot 2.3 to 2.7 grader now accepts both JUnit 4 outcomes after the
+  vintage engine leaves: silently not running when `junit:junit` is on the
+  classpath, and a compile failure when it is not.
+- The JUnit 4 grader no longer asks for an observed run in a case whose prompt
+  forbids running anything.
+- The Node grader accepts a restart that is labelled as a stopgap.
+- `spring-boot-engineering` now reads CONFIGURATION.md first for an upgrade
+  across Boot lines, even when java-testing also loads.
+
+Run: Claude Code 2.1.332, `claude plugin eval` with-without, sonnet judge,
+three runs per case, with the README's `--allow-tools` read grant. Fifteen
+English cases cost $9.19. The JUnit 4, Boot upgrade and Node cases were rerun
+after their grader fixes and cost $2.16.
+
+| Case | With plugin | Without | Skill loaded |
+|---|---|---|---|
+| jvm-jstat-and-attach | 3/3 | 0/3 | 3/3 |
+| oceanbase-isolation-and-locking-reads | 3/3 | 0/3 | 3/3 |
+| oceanbase-auto-increment-sync | 3/3 | 0/3 | 3/3 |
+| oceanbase-job-claim | 2/3 | 0/3 | 3/3 |
+| kafka-idempotence-on-boot-2.6.0 | 0/3 | 0/3 | 1/3 |
+| redis, order-endpoint, transaction-not-rolled-back | 3/3 each | 3/3 each | 3, 3, 1 of 3 |
+| junit4-test-not-discovered (rerun) | 3/3 | 3/3 | 3/3 |
+| boot-2.3-to-2.7-on-java-8 (rerun) | 3/3 | 3/3 | 3/3 |
+| java8-release-idioms | 2/3 | 3/3 | 2/3 |
+| spring-wiring-evidence | 1/3 | 2/3 | 3/3 |
+| negatives (Node rerun, Python, modern Java) | 3/3 each | 2/3, 3/3, 3/3 | none fired |
+
+In the Boot upgrade case, CONFIGURATION.md was read in 3 of 3 runs, up from 3
+of 6 before the routing line. java-testing also loaded in 2 of 3 runs.
+
+Not settled:
+
+- The Kafka case fails because messaging-reliability loaded in only one run
+  and read no reference. It passed in two of two runs when the skill was
+  forced. Its description lacks producer-configuration terms, and that skill
+  was outside this change.
+- use-modern-java did not load for the plain modernization prompt (0 of 3), and
+  in java8-release-idioms it loaded without reading a reference.
+- spring-wiring-evidence has split judge votes in both arms.
+- With three runs, a one-run difference is within judge and agent noise.
+- The Chinese variants were not rerun in this change.
+- CONFIGURATION.md lines 44-45 still say JUnit 4 tests "stop running rather
+  than fail". That omits the compile failure seen when `junit:junit` is
+  absent, and the reference edit is pending.
+
 ## Version 0.8.7 — Pre-edit check time budget — 2026-11-17
 
 A consumer session on a machine short of memory waited on the pre-edit check
