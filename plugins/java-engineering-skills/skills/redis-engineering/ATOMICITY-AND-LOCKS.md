@@ -34,6 +34,9 @@ end
 return 0
 ```
 
+From Redis 8.4, `DELEX key IFEQ token` does the same compare-and-delete
+natively; use the script on earlier servers.
+[Redis distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/).
 Separate `GET` then `DEL` is racy. Use a unique token per acquisition, not only
 per process. Renewal must also verify the current owner atomically.
 
@@ -84,8 +87,9 @@ The documented contract, when the project uses this client:
   attempted and the operation completes exceptionally. Classify this
   separately from `tryLock` returning false on contention, and verify the
   exception path for the deployed client version.
-- `RedLock` is deprecated (since 3.12.5) in favor of a plain lock with the
-  replica check, and `RFencedLock` where the protected resource can verify a
+- `RedLock` is deprecated in favor of a plain lock with the replica check
+  (`RedissonClient.getRedLock` carries `@Deprecated` from 3.12.5, and the
+  `RedissonRedLock` class itself in later releases such as 3.52.0), and `RFencedLock` where the protected resource can verify a
   monotonic token; `MultiLock` is not deprecated.
 
 Sources: [Redisson locks](https://redisson.pro/docs/data-and-services/locks-and-synchronizers/),
