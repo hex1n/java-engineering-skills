@@ -1,12 +1,23 @@
 #!/usr/bin/env node
-// Measures whether each plugin skill was loaded before the first edit that the
-// pre-edit skill check attributes to it, across local Claude Code and Codex transcripts.
-// Usage: node scripts/pre-edit-skill-check-stats.mjs [--since YYYY-MM-DD] [--verbose]
+// Measures, across local Claude Code and Codex transcripts, how each plugin
+// skill came to be loaded and whether it was loaded before the first edit that
+// the pre-edit skill check attributes to it.
+//
+// How a transcript first loaded a skill:
+//   model     the agent loaded it unprompted (chosen from its description)
+//   explicit  the user typed it as a slash command
+//   hook      after the check refused an edit or reminded about it
+//   not-loaded  the transcript has a covered edit and never loaded the skill
+// For skills with covered edits: edited, loaded before the first edit, loaded
+// only later (late). An edit the check refused did not happen and is not counted.
+//
+// Usage: node scripts/pre-edit-skill-check-stats.mjs [--since YYYY-MM-DD] [--verbose] [--json]
 //        [--claude DIR] [--codex DIR]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { classify, extractEdits, transcriptLoads, toolCalls } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { fileURLToPath } from 'node:url';
+import { PLUGIN, classify, extractEdits, injectedSkills, toolCalls, toolResults, transcriptLoads } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -15,6 +26,7 @@ const option = (name, fallback) => {
 };
 const since = option('--since') ? new Date(option('--since')).getTime() : 0;
 const verbose = args.includes('--verbose');
+const json = args.includes('--json');
 const roots = {
   claude: option('--claude', path.join(os.homedir(), '.claude/projects')),
   codex: option('--codex', path.join(os.homedir(), '.codex/sessions')),
@@ -29,57 +41,113 @@ function* jsonl(dir) {
   }
 }
 
-/** Per transcript: skill -> {hard, before, after} for skills its edits touched. */
-function analyze(text) {
-  const loaded = new Set();
-  const outcome = new Map();
+// The check's own refusal and reminder texts (see message() in the hook). In
+// Claude Code the refusal is an error tool_result and the reminder a
+// hook_additional_context attachment; any record the model did not write is
+// scanned, so other layouts that carry the same text count too.
+const REFUSAL = new RegExp(`${PLUGIN}: this edit was not applied\\. Load (.*?) now, then retry`, 'g');
+const REMINDER = new RegExp(`${PLUGIN}: this edit touches (.*?)\\. If that concern`, 'g');
+const NAMED = new RegExp(`\`${PLUGIN}:([a-z-]+)\``, 'g');
+const named = (line, pattern) => [...line.matchAll(pattern)].flatMap(match => [...match[1].matchAll(NAMED)].map(name => name[1]));
+
+/** True for records the model wrote: its text, reasoning and tool calls. */
+function byModel(record) {
+  if (record?.type === 'assistant') return true;
+  const payload = record?.type === 'response_item' ? record.payload : null;
+  if (!payload) return record?.type === 'event_msg' && /^agent_/.test(record.payload?.type || '');
+  return payload.type === 'reasoning' || /(^|_)call$/.test(payload.type || '') || (payload.type === 'message' && payload.role !== 'user');
+}
+
+/**
+ * A Codex user message that holds a skill's full SKILL.md, which is how an
+ * explicit skill mention is assumed to arrive there. Not checked against a real
+ * Codex rollout; Claude Code's layout is handled by injectedSkills().
+ */
+const codexBodies = new Map();
+function codexUserSkills(record) {
+  const payload = record?.type === 'response_item' ? record.payload : null;
+  if (payload?.type !== 'message' || payload.role !== 'user' || !Array.isArray(payload.content)) return [];
+  const text = payload.content.map(item => item?.text || '').join('\n').replace(/\r\n?/g, '\n');
+  const skillsDir = new URL('../plugins/java-engineering-skills/skills/', import.meta.url);
+  return [...text.matchAll(/^name: ([a-z-]+)$/gm)].map(match => match[1]).filter(skill => {
+    if (!codexBodies.has(skill)) {
+      try { codexBodies.set(skill, fs.readFileSync(new URL(`${skill}/SKILL.md`, skillsDir), 'utf8').replace(/\r\n?/g, '\n').trim()); } catch { codexBodies.set(skill, null); }
+    }
+    return codexBodies.get(skill) && text.includes(codexBodies.get(skill));
+  });
+}
+
+/** Per transcript: skill -> {how, hard, edited, before, late}. */
+export function analyze(text) {
+  const lines = text.split('\n').filter(Boolean);
   const consume = transcriptLoads();
-  // Edits the check blocked did not happen; the retry after loading counts.
-  const blocked = new Set([...text.matchAll(/"(?:tool_use_id|call_id)"\s*:\s*"([^"]+)"[^\n]*?java-engineering-skills: (?:load |this edit was not applied)/g)].map(match => match[1]));
-  for (const line of text.split('\n')) {
-    if (!line) continue;
-    for (const skill of consume(line)) {
-      loaded.add(skill);
-      const entry = outcome.get(skill);
-      if (entry && !entry.before) entry.after = true;
+  const result = new Map();
+  const entry = skill => result.get(skill) || result.set(skill, { how: null, hard: null, edited: false, before: false, late: false, file: null }).get(skill);
+  // Edits the check refused did not happen; the retry after loading counts.
+  const refused = new Set();
+  for (const line of lines) {
+    for (const item of toolResults(line)) {
+      const output = typeof item.output === 'string' ? item.output : JSON.stringify(item.output ?? '');
+      if (new RegExp(REFUSAL.source).test(output)) refused.add(item.id);
+    }
+  }
+  const asked = new Set();
+  for (const line of lines) {
+    let record;
+    try { record = JSON.parse(line); } catch { continue; }
+    if (!byModel(record)) for (const skill of [...named(line, REFUSAL), ...named(line, REMINDER)]) asked.add(skill);
+    const injected = injectedSkills(line);
+    const explicit = new Set([...(injected && !injected.toolUseId ? injected.skills : []), ...codexUserSkills(record)]);
+    for (const skill of [...consume(line), ...explicit]) {
+      const row = entry(skill);
+      if (row.how) continue;
+      row.how = explicit.has(skill) ? 'explicit' : asked.has(skill) ? 'hook' : 'model';
+      if (row.edited && !row.before) row.late = true;
     }
     for (const { toolName, toolInput, id } of toolCalls(line)) {
-      if (blocked.has(id)) continue;
-      const hits = classify(extractEdits(toolName, toolInput));
-      for (const hit of hits) {
-        const entry = outcome.get(hit.skill);
-        if (!entry) outcome.set(hit.skill, { hard: hit.hard, before: loaded.has(hit.skill), after: false, file: hit.file });
-        else entry.hard ||= hit.hard;
+      if (refused.has(id)) continue;
+      for (const hit of classify(extractEdits(toolName, toolInput))) {
+        const row = entry(hit.skill);
+        row.hard ||= hit.hard;
+        if (row.edited) continue;
+        Object.assign(row, { edited: true, before: Boolean(row.how), file: hit.file });
       }
     }
   }
-  return outcome;
+  return result;
 }
 
 function report() {
   const rows = new Map();
-  const misses = [];
+  const details = [];
   for (const [runtime, dir] of Object.entries(roots)) {
     for (const file of jsonl(dir)) {
       for (const [skill, result] of analyze(fs.readFileSync(file, 'utf8'))) {
         const key = `${runtime}\t${skill}`;
-        const row = rows.get(key) || { runtime, skill, hard: false, sessions: 0, before: 0, after: 0, never: 0 };
-        row.hard ||= result.hard;
-        row.sessions++;
-        if (result.before) row.before++;
-        else if (result.after) row.after++;
-        else row.never++;
+        const row = rows.get(key) || { runtime, skill, rule: '-', transcripts: 0, model: 0, explicit: 0, hook: 0, notLoaded: 0, edited: 0, beforeEdit: 0, late: 0 };
+        if (result.hard !== null) row.rule = result.hard || row.rule === 'hard' ? 'hard' : 'soft';
+        row.transcripts++;
+        if (result.how) row[result.how]++; else row.notLoaded++;
+        if (result.edited) {
+          row.edited++;
+          if (result.before) row.beforeEdit++;
+          else if (result.late) row.late++;
+        }
         rows.set(key, row);
-        if (!result.before) misses.push(`${runtime}  ${skill}  ${result.after ? 'late ' : 'never'}  ${path.relative(dir, file)}  (${path.basename(result.file)})`);
+        if (result.edited && !result.before) {
+          details.push(`${runtime}  ${skill}  ${result.how || 'not-loaded'}  ${path.relative(dir, file)}  (${path.basename(result.file)})`);
+        }
       }
     }
   }
-  const sorted = [...rows.values()].sort((a, b) => a.runtime.localeCompare(b.runtime) || b.sessions - a.sessions);
-  console.log('runtime  rule  skill                     transcripts  before-edit  late  never');
+  const sorted = [...rows.values()].sort((a, b) => a.runtime.localeCompare(b.runtime) || b.transcripts - a.transcripts);
+  if (json) return console.log(JSON.stringify(sorted, null, 2));
+  console.log('                                              first load                        covered edits');
+  console.log('runtime  rule  skill                     transcripts  model explicit  hook not-loaded  edited before-edit  late');
   for (const row of sorted) {
-    console.log(`${row.runtime.padEnd(8)} ${(row.hard ? 'hard' : 'soft').padEnd(5)} ${row.skill.padEnd(25)} ${String(row.sessions).padStart(11)} ${String(row.before).padStart(12)} ${String(row.after).padStart(5)} ${String(row.never).padStart(6)}`);
+    console.log(`${row.runtime.padEnd(8)} ${row.rule.padEnd(5)} ${row.skill.padEnd(25)} ${String(row.transcripts).padStart(11)} ${String(row.model).padStart(6)} ${String(row.explicit).padStart(8)} ${String(row.hook).padStart(5)} ${String(row.notLoaded).padStart(10)} ${String(row.edited).padStart(7)} ${String(row.beforeEdit).padStart(11)} ${String(row.late).padStart(5)}`);
   }
-  if (verbose && misses.length) console.log(`\n${misses.join('\n')}`);
+  if (verbose && details.length) console.log(`\nLoaded after the first covered edit, or never:\n${details.join('\n')}`);
 }
 
-report();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) report();

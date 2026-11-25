@@ -178,7 +178,7 @@ CONTRIBUTING.md                       规则准入与验证流程
 VALIDATION.md                         各版本执行过的验证与缺口
 scripts/check.mjs                       离线结构与引用检查
 scripts/check-examples.mjs              编译与契约示例验证
-scripts/pre-edit-skill-check-stats.mjs  本机会话中 skill 是否先于相关编辑加载
+scripts/pre-edit-skill-check-stats.mjs  本机会话中 skill 由谁触发、是否先于相关编辑加载
 tests/*.test.mjs                       检查脚本的回归测试
 tests/examples/                        Java 8/11/17/21 验证样例
 ```
@@ -194,12 +194,19 @@ claude plugin validate ./plugins/java-engineering-skills
 claude plugin validate ./.claude-plugin/marketplace.json
 ```
 
-统计本机 Claude Code 与 Codex 会话里，各 skill 是否在相关编辑之前加载
-（`--verbose` 列出漏加载的会话）：
+统计本机 Claude Code 与 Codex 会话里，各 skill 第一次加载由谁触发，以及是否在相关编辑之前加载
+（`--verbose` 列出晚加载或没加载的会话，`--json` 输出原始行）：
 
 ```sh
 node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 ```
+
+“第一次加载”分四类：`model`（模型按 description 自行加载）、`explicit`（用户输入
+`/java-engineering-skills:<skill>`）、`hook`（检查拦截或提醒之后才加载）、`not-loaded`
+（有相关编辑但从未加载）。后三列只统计有相关编辑的会话：`edited`、`before-edit`（第一次
+相关编辑前已加载）、`late`（编辑后才加载）；被拦截的编辑没有发生，不计入。Claude Code
+一侧的记录格式按 2.1.332 的会话核对过；Codex 一侧的显式调用与拦截记录格式尚未用真实
+rollout 核对，按推测的格式识别。
 
 `plugins/java-engineering-skills/evals/` 存放 `claude plugin eval` 的用例
 （`prompt.md` 加 `graders/*.md`），按标签分四组：
