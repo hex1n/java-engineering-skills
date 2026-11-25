@@ -1,6 +1,6 @@
 ---
 name: "Pre-release review of order endpoints"
-tags: ["java-api-security", "authorization", "review"]
+tags: ["regression", "java-api-security", "authorization", "review"]
 runs: 2
 max_turns: 10
 ---

@@ -1,6 +1,6 @@
 ---
 name: "Spring Boot 2.3.12 to 2.7.18 upgrade on JDK 8"
-tags: ["spring-boot-engineering", "upgrade"]
+tags: ["regression", "spring-boot-engineering", "upgrade"]
 runs: 2
 max_turns: 12
 ---

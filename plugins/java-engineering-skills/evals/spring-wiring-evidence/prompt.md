@@ -1,6 +1,6 @@
 ---
 name: "Explain Spring wiring from existing code and test evidence"
-tags: ["spring-boot-engineering", "analysis", "wiring"]
+tags: ["regression", "spring-boot-engineering", "analysis", "wiring"]
 runs: 2
 max_turns: 12
 ---

@@ -1,6 +1,6 @@
 ---
 name: "OceanBase MySQL mode: job claiming, bulk update, column widening"
-tags: ["database-transactions", "oceanbase"]
+tags: ["discriminating", "database-transactions", "oceanbase"]
 runs: 2
 max_turns: 12
 ---

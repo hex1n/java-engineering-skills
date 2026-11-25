@@ -1,6 +1,6 @@
 ---
 name: "Redis lock guarding a payment call"
-tags: ["redis-engineering", "locks", "idempotency"]
+tags: ["regression", "redis-engineering", "locks", "idempotency"]
 runs: 2
 max_turns: 10
 ---

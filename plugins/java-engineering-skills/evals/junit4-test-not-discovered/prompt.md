@@ -1,6 +1,6 @@
 ---
 name: "A new test compiles but never runs under Boot 2.7"
-tags: ["java-testing", "discovery"]
+tags: ["regression", "java-testing", "discovery"]
 runs: 2
 max_turns: 10
 ---

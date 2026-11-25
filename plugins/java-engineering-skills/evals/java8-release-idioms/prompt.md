@@ -1,6 +1,6 @@
 ---
 name: "Modernize a method in a module compiled for Java 8 on a JDK 21 workstation"
-tags: ["use-modern-java", "version", "behavior"]
+tags: ["regression", "use-modern-java", "version", "behavior"]
 runs: 2
 max_turns: 10
 ---

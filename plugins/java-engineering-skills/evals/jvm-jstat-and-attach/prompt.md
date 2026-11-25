@@ -1,6 +1,6 @@
 ---
 name: "JVM triage: failed attach, jstat percentages, CMS FGC"
-tags: ["jvm-performance", "diagnosis"]
+tags: ["discriminating", "jvm-performance", "diagnosis"]
 runs: 2
 max_turns: 10
 ---

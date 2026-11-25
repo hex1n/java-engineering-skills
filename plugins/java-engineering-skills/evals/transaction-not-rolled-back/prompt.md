@@ -1,6 +1,6 @@
 ---
 name: "A transfer leaves the debit committed after a failure"
-tags: ["spring-boot-engineering", "transactions", "proxy"]
+tags: ["regression", "spring-boot-engineering", "transactions", "proxy"]
 runs: 2
 max_turns: 10
 ---
