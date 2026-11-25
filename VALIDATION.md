@@ -484,6 +484,9 @@ drove these changes:
   neighbouring skill that owns an adjacent branch (row locks, Redis leases,
   idempotency keys, committed-state assertions), and `outbox`, `@Cacheable`,
   and `Boot 2.x release-line` appear in the descriptions that own them.
+  (Later descriptions were rewritten around their own trigger words: by 0.8.7
+  only `java-concurrency` still names a neighbouring skill, for row locks and
+  Redis leases. This entry records the 0.7.0 state.)
 - Rules that were restated in several skills (proxy self-invocation,
   JVM-local locks across instances, in-memory databases, metric labels,
   outbox, virtual threads) now live in one owner; other skills name the owner
