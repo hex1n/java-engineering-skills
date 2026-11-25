@@ -1,5 +1,55 @@
 # Validation record
 
+## Unreleased — transaction fix in the entry point, OceanBase DDL and timeouts — 2026-11-25
+
+Changes:
+
+- `spring-boot-engineering` SKILL.md now states the smallest fix for a
+  transaction that does not roll back (one proxied boundary, `rollbackFor`,
+  rethrow or `setRollbackOnly()`) and how to prove it (call the bean, force the
+  failure, query the rows). The pointer to TRANSACTIONS-AND-ASYNC.md now names
+  the cases that need it (propagation, `UnexpectedRollbackException`,
+  transaction events, `@Async` executors) instead of the whole topic.
+- OCEANBASE.md no longer says a `DECIMAL` widening is offline. The 4.2.1
+  online list includes "increasing a column type's length or precision"
+  (examples: `INT`, `VARCHAR`, `NUMBER`-class); neither page names a `DECIMAL`
+  precision-and-scale change, and the column-type rules make a change offline
+  when an index, key or partition key references the column. The file now treats
+  such a widening as unconfirmed: rehearse, check `table_id`, plan for offline.
+- OCEANBASE.md timeouts: `ob_trx_timeout` is 24 hours from 4.0 (100 seconds
+  before); the idle-timeout error now also gives the OceanBase code -6224.
+- `oceanbase-job-claim` (en, zh) grader `timeouts-and-ddl`: the widening may be
+  treated as offline or as needing confirmation on the target version, with a
+  rehearsal and an offline-case plan either way; stating that `ob_trx_timeout`
+  defaults to 100 seconds on this version now fails.
+
+Executed:
+
+- `node --test "tests/*.test.mjs"`: 55/55. `node scripts/check.mjs`: pass.
+- `claude plugin eval` (Claude Code 2.1.332, `--ablation none`, sonnet judge,
+  3 runs per case; reads allowed under the plugin directory):
+  - four transaction cases (en, zh): skill fired 12/12, all graders 12/12,
+    no reference reads ($1.11);
+  - `oceanbase-job-claim` en and zh with the new text: `timeouts-and-ddl` 6/6,
+    `skill-fired` 6/6, `engine-recognized` 5/6; every run read OCEANBASE.md
+    ($1.38).
+- Grader replay (stored answers from earlier result JSONs echoed verbatim, then
+  graded by the real judge, 3 votes each): with the final fail clause, 11
+  with-plugin answers passed 3:0, 1 of 5 without-plugin answers passed, and 3
+  deliberately wrong answers (online-and-direct, InnoDB INPLACE, one statement)
+  failed 3:0 ($2.60). An earlier replay of an intermediate grader without the
+  `ob_trx_timeout` clause passed 18 of 19 with-plugin answers ($3.73); 12 of
+  them were not replayed again and none states a 100-second default.
+
+Not verified:
+
+- Whether OceanBase 4.2.1 runs `decimal(16,2)` to `decimal(20,4)` online; the
+  documentation does not settle it and no OceanBase instance was used.
+- The `ob_trx_idle_timeout` default and the MySQL-side codes 4012 and 6002 for
+  OceanBase -6210 and -6224 were not found on the pages read.
+- The final grader text (which no longer names `ob_trx_idle_timeout`) was not
+  replayed; the live run used the version that named both variables.
+
 ## Unreleased — build-file reminders, slash-command loads, trigger statistics — 2026-11-25
 
 Changes:
