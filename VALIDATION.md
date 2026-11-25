@@ -1,5 +1,57 @@
 # Validation record
 
+## Version 0.8.8 — Skill corrections, eval coverage and hook fixes since 0.8.7 — 2026-11-26
+
+This release carries every change on `main` after 0.8.7: the eleven sections
+recorded below as unreleased, and the earlier commits listed here, which have
+no section of their own.
+
+Skills:
+
+- Corrections: Kafka defaults, GC timestamps, root attach and the registry;
+  `-Xloggc` is no longer read as a Java 8 marker; the Java 25 default async
+  executor in java-concurrency; OceanBase `DECIMAL` widening, now stated from
+  measurements on OceanBase CE 4.2.1; OceanBase batch claims by token.
+- Guidance: entry workflows sized to the task; version conditions on async,
+  mocking and upsert advice; one shared three-part report format;
+  java-api-security review grading moved to `REVIEW.md` with an IDOR check;
+  each redis step carries its done condition; a messaging crash table; null
+  queries on `List.of` and JEP 491; RedLock's deprecation dated from the jars;
+  `EXPLAIN ANALYZE` statements and the OceanBase offline DDL list.
+- Routing: Chinese, library and English trigger words in descriptions;
+  jvm-performance and java-testing on pasted output and review asks;
+  messaging-reliability and use-modern-java on config and rewrite asks;
+  spring-boot-engineering on transactions that do not roll back, with the fix
+  and its proof in the entry point; `CONFIGURATION.md` first for Boot line
+  upgrades.
+- `use-modern-java/SKILL.md` fits within Codex's 8000-byte cut.
+
+Hook and scripts:
+
+- In-place, quoted and diff edits are detected; no-op writes stop; the
+  database reminder no longer fires on prose; build-file changes to the Java
+  level or the Spring Boot version remind; a skill typed as a slash command
+  counts as loaded; Codex-named skills count; a single pom `<version>` line is
+  judged by its block; a Codex child's rollout is looked up from the parent's
+  day forward. `Skill` is dropped from the Claude Code `PreToolUse` matcher.
+  The Codex hook entries in `.codex-plugin/plugin.json` are unchanged apart
+  from the manifest version.
+- The statistics script splits first skill loads into model, explicit, hook
+  and not-loaded, and reads Codex rollouts as the source writes them.
+- `scripts/check.mjs` fails any `SKILL.md` over 8000 bytes; CI compiles and
+  runs the Java examples on JDK 8, 11, 17 and 21.
+
+Evals: grader frontmatter the evaluator accepts, Chinese prompt variants,
+role tags, discriminating and negative cases, and cases for the skills that
+had none.
+
+Evidence for this release, on Linux with Node 22.23.5:
+
+- `node scripts/check.mjs`: pass. `node --test "tests/*.test.mjs"`: 61/61.
+- Not run for this release: a fresh install from the marketplace, a live hook
+  call in Claude Code or Codex, and the eval suite. The sections below record
+  the runs made for each change.
+
 ## Unreleased — use-modern-java within Codex's 8000-byte cut — 2026-11-26
 
 `use-modern-java/SKILL.md` was 8497 bytes, above the 8000 bytes at which Codex
