@@ -52,11 +52,49 @@ test('the model quoting the check does not make a load the check\'s doing', () =
   assert.equal(row(transcript([quoted, skillCall('s1', 'use-modern-java')]), 'use-modern-java').how, 'model');
 });
 
-test('Codex: a user message holding the full SKILL.md counts as explicit (assumed layout)', () => {
-  const user = { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: `<skill>\n${body('java-testing')}\n</skill>` }] } };
-  assert.equal(row(transcript([user]), 'java-testing').how, 'explicit');
-  const cut = { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: body('java-testing').slice(0, 500) }] } };
-  assert.equal(analyze(transcript([cut])).size, 0);
+// Codex rollout layouts as read from the openai/codex source (commit 06f334aa,
+// 2026-11-25), not from a real rollout: every line is {timestamp, type, payload};
+// a named skill is a user message `<skill><name/><path/>{SKILL.md}</skill>`
+// (ext/skills/src/fragments.rs), a hook's additionalContext a developer message
+// (core/src/hook_runtime.rs), and a PreToolUse deny the tool output
+// "Tool call blocked by PreToolUse hook: {reason}. Tool: {name}".
+const item = payload => ({ timestamp: '2026-11-25T00:00:00.000Z', type: 'response_item', payload });
+const message = (role, text) => item({ type: 'message', role, content: [{ type: role === 'assistant' ? 'output_text' : 'input_text', text }] });
+const named = (skill, text = body(skill)) => message('user', `<skill>\n<name>${P}:${skill}</name>\n<path>/home/me/.codex/plugins/cache/x/${P}/skills/${skill}/SKILL.md</path>\n${text}\n</skill>`);
+const exec = (id, cmd) => item({ type: 'function_call', name: 'exec_command', arguments: JSON.stringify({ cmd }), call_id: id });
+const execOutput = (id, output) => item({ type: 'function_call_output', call_id: id, output });
+const read = (id, skill) => [exec(id, `cat /home/me/.codex/plugins/cache/x/${P}/skills/${skill}/SKILL.md`), execOutput(id, `Process exited with code 0\nOutput:\n${body(skill)}`)];
+const patch = (id, file, line = 'return x * 2;') => item({ type: 'custom_tool_call', call_id: id, name: 'apply_patch',
+  input: `*** Begin Patch\n*** Update File: ${file}\n@@\n-return x;\n+${line}\n*** End Patch` });
+const blocked = (id, skill) => item({ type: 'custom_tool_call_output', call_id: id,
+  output: `Tool call blocked by PreToolUse hook: ${refusal(skill).replace(/^PreToolUse:Edit hook error: /, '')} Tool: apply_patch` });
+const TEST = '/repo/src/test/java/a/FooTest.java';
+
+test('Codex: a skill the user names counts as explicit only with the whole file', () => {
+  assert.deepEqual(row(transcript([named('java-testing'), patch('p1', TEST)]), 'java-testing'),
+    { how: 'explicit', edited: true, before: true, late: false });
+  // The host cuts a plugin skill at 8000 bytes; a cut body is not the skill.
+  const cut = Buffer.from(body('java-testing')).subarray(0, 500).toString();
+  assert.equal(analyze(transcript([named('java-testing', cut)])).size, 0);
+  // The user's own words naming the skill are not the skill either.
+  assert.equal(analyze(transcript([message('user', `$${P}:java-testing please`)])).size, 0);
+});
+
+test('Codex: a refused patch and a developer-message reminder make the load the check\'s doing', () => {
+  assert.deepEqual(row(transcript([patch('p1', FOO), blocked('p1', 'use-modern-java'), read('r1', 'use-modern-java'), patch('p2', FOO)]), 'use-modern-java'),
+    { how: 'hook', edited: true, before: true, late: false });
+  const text = reminder('spring-boot-engineering').attachment.content[0];
+  assert.deepEqual(row(transcript([read('r0', 'use-modern-java'), patch('p1', FOO, '@Transactional void run() {}'), message('developer', text), read('r1', 'spring-boot-engineering')]), 'spring-boot-engineering'),
+    { how: 'hook', edited: true, before: false, late: true });
+  // The model repeating the reminder in its own message is not the check.
+  assert.equal(row(transcript([message('assistant', text), read('r1', 'spring-boot-engineering')]), 'spring-boot-engineering').how, 'model');
+});
+
+test('an edit whose tool reported an error did not happen', () => {
+  // Claude Code checks Edit input ("String to replace not found") before
+  // PreToolUse hooks run, so the failed call carries no hook text at all.
+  // Measured with claude -p 2.1.332 on 2026-11-25.
+  assert.equal(analyze(transcript([edit('e1', FOO), result('e1', '<tool_use_error>String to replace not found in file.</tool_use_error>', true)])).size, 0);
 });
 
 test('the report reads both transcript roots and prints JSON rows', t => {
@@ -70,4 +108,21 @@ test('the report reads both transcript roots and prints JSON rows', t => {
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), [{ runtime: 'claude', skill: 'use-modern-java', rule: 'hard', transcripts: 2,
     model: 0, explicit: 1, hook: 1, notLoaded: 0, edited: 2, beforeEdit: 2, late: 0 }]);
+});
+
+test('the report reads Codex sessions and archived sessions under CODEX_HOME', t => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-codex-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const day = path.join(home, 'sessions/2026/11/25');
+  fs.mkdirSync(day, { recursive: true });
+  fs.mkdirSync(path.join(home, 'archived_sessions'));
+  fs.writeFileSync(path.join(day, 'rollout-2026-11-25T10-00-00-a.jsonl'), transcript([named('java-testing'), patch('p1', TEST)]));
+  fs.writeFileSync(path.join(home, 'archived_sessions/rollout-2026-11-20T10-00-00-b.jsonl'), transcript([read('r1', 'java-testing'), patch('p1', TEST)]));
+  fs.writeFileSync(path.join(day, 'rollout-2026-11-25T11-00-00-c.jsonl.zst'), 'not read');
+  const run = spawnSync(process.execPath, [path.join(ROOT, 'scripts/pre-edit-skill-check-stats.mjs'), '--json', '--claude', path.join(home, 'none')],
+    { encoding: 'utf8', env: { ...process.env, CODEX_HOME: home } });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(JSON.parse(run.stdout).filter(row => row.skill === 'java-testing'), [{ runtime: 'codex', skill: 'java-testing', rule: 'hard', transcripts: 2,
+    model: 1, explicit: 1, hook: 0, notLoaded: 0, edited: 2, beforeEdit: 2, late: 0 }]);
+  assert.match(run.stderr, /Skipped 1 compressed Codex rollout/);
 });

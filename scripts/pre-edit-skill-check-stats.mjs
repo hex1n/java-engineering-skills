@@ -9,10 +9,15 @@
 //   hook      after the check refused an edit or reminded about it
 //   not-loaded  the transcript has a covered edit and never loaded the skill
 // For skills with covered edits: edited, loaded before the first edit, loaded
-// only later (late). An edit the check refused did not happen and is not counted.
+// only later (late). An edit the check refused, or one whose tool reported an
+// error, did not happen and is not counted.
+//
+// Codex rollouts are read from $CODEX_HOME (default ~/.codex) sessions/ and
+// archived_sessions/. Their layout was checked against the openai/codex source
+// (2026-11-25), not against a real rollout; see VALIDATION.md.
 //
 // Usage: node scripts/pre-edit-skill-check-stats.mjs [--since YYYY-MM-DD] [--verbose] [--json]
-//        [--claude DIR] [--codex DIR]
+//        [--claude DIR] [--codex DIR]...
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,16 +32,22 @@ const option = (name, fallback) => {
 const since = option('--since') ? new Date(option('--since')).getTime() : 0;
 const verbose = args.includes('--verbose');
 const json = args.includes('--json');
+const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 const roots = {
-  claude: option('--claude', path.join(os.homedir(), '.claude/projects')),
-  codex: option('--codex', path.join(os.homedir(), '.codex/sessions')),
+  claude: [option('--claude', path.join(os.homedir(), '.claude/projects'))],
+  // Codex moves an archived thread's rollout from sessions/ to archived_sessions/.
+  codex: option('--codex') ? [option('--codex')] : ['sessions', 'archived_sessions'].map(dir => path.join(codexHome, dir)),
 };
 
+// Codex can compress cold rollouts to .jsonl.zst (local_thread_store_compression,
+// off by default in the source checked); those are counted and skipped.
+let compressed = 0;
 function* jsonl(dir) {
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) yield* jsonl(file);
+    else if (entry.name.endsWith('.jsonl.zst')) compressed++;
     else if (entry.name.endsWith('.jsonl') && fs.statSync(file).mtimeMs >= since) yield file;
   }
 }
@@ -50,31 +61,16 @@ const REMINDER = new RegExp(`${PLUGIN}: this edit touches (.*?)\\. If that conce
 const NAMED = new RegExp(`\`${PLUGIN}:([a-z-]+)\``, 'g');
 const named = (line, pattern) => [...line.matchAll(pattern)].flatMap(match => [...match[1].matchAll(NAMED)].map(name => name[1]));
 
-/** True for records the model wrote: its text, reasoning and tool calls. */
+/**
+ * True for records the model wrote: its text, reasoning and tool calls. In Codex
+ * a hook's additionalContext is recorded as a developer message, so only
+ * assistant messages count as the model's.
+ */
 function byModel(record) {
   if (record?.type === 'assistant') return true;
   const payload = record?.type === 'response_item' ? record.payload : null;
   if (!payload) return record?.type === 'event_msg' && /^agent_/.test(record.payload?.type || '');
-  return payload.type === 'reasoning' || /(^|_)call$/.test(payload.type || '') || (payload.type === 'message' && payload.role !== 'user');
-}
-
-/**
- * A Codex user message that holds a skill's full SKILL.md, which is how an
- * explicit skill mention is assumed to arrive there. Not checked against a real
- * Codex rollout; Claude Code's layout is handled by injectedSkills().
- */
-const codexBodies = new Map();
-function codexUserSkills(record) {
-  const payload = record?.type === 'response_item' ? record.payload : null;
-  if (payload?.type !== 'message' || payload.role !== 'user' || !Array.isArray(payload.content)) return [];
-  const text = payload.content.map(item => item?.text || '').join('\n').replace(/\r\n?/g, '\n');
-  const skillsDir = new URL('../plugins/java-engineering-skills/skills/', import.meta.url);
-  return [...text.matchAll(/^name: ([a-z-]+)$/gm)].map(match => match[1]).filter(skill => {
-    if (!codexBodies.has(skill)) {
-      try { codexBodies.set(skill, fs.readFileSync(new URL(`${skill}/SKILL.md`, skillsDir), 'utf8').replace(/\r\n?/g, '\n').trim()); } catch { codexBodies.set(skill, null); }
-    }
-    return codexBodies.get(skill) && text.includes(codexBodies.get(skill));
-  });
+  return payload.type === 'reasoning' || /(^|_)call$/.test(payload.type || '') || (payload.type === 'message' && payload.role === 'assistant');
 }
 
 /** Per transcript: skill -> {how, hard, edited, before, late}. */
@@ -83,12 +79,12 @@ export function analyze(text) {
   const consume = transcriptLoads();
   const result = new Map();
   const entry = skill => result.get(skill) || result.set(skill, { how: null, hard: null, edited: false, before: false, late: false, file: null }).get(skill);
-  // Edits the check refused did not happen; the retry after loading counts.
+  // Edits the check refused, or that failed, did not happen; the retry counts.
   const refused = new Set();
   for (const line of lines) {
     for (const item of toolResults(line)) {
       const output = typeof item.output === 'string' ? item.output : JSON.stringify(item.output ?? '');
-      if (new RegExp(REFUSAL.source).test(output)) refused.add(item.id);
+      if (item.failed || new RegExp(REFUSAL.source).test(output)) refused.add(item.id);
     }
   }
   const asked = new Set();
@@ -97,7 +93,7 @@ export function analyze(text) {
     try { record = JSON.parse(line); } catch { continue; }
     if (!byModel(record)) for (const skill of [...named(line, REFUSAL), ...named(line, REMINDER)]) asked.add(skill);
     const injected = injectedSkills(line);
-    const explicit = new Set([...(injected && !injected.toolUseId ? injected.skills : []), ...codexUserSkills(record)]);
+    const explicit = new Set(injected && !injected.toolUseId ? injected.skills : []);
     for (const skill of [...consume(line), ...explicit]) {
       const row = entry(skill);
       if (row.how) continue;
@@ -120,7 +116,7 @@ export function analyze(text) {
 function report() {
   const rows = new Map();
   const details = [];
-  for (const [runtime, dir] of Object.entries(roots)) {
+  for (const [runtime, dirs] of Object.entries(roots)) for (const dir of dirs) {
     for (const file of jsonl(dir)) {
       for (const [skill, result] of analyze(fs.readFileSync(file, 'utf8'))) {
         const key = `${runtime}\t${skill}`;
@@ -141,6 +137,7 @@ function report() {
     }
   }
   const sorted = [...rows.values()].sort((a, b) => a.runtime.localeCompare(b.runtime) || b.transcripts - a.transcripts);
+  if (compressed) console.error(`Skipped ${compressed} compressed Codex rollout(s) (.jsonl.zst); decompress them with zstd -d to include them.`);
   if (json) return console.log(JSON.stringify(sorted, null, 2));
   console.log('                                              first load                        covered edits');
   console.log('runtime  rule  skill                     transcripts  model explicit  hook not-loaded  edited before-edit  late');
