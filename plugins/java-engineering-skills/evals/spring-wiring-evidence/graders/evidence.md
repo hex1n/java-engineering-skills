@@ -1,8 +1,6 @@
 ---
 type: llm
-rubric: "Assess the registration and dependency-selection reasoning, fidelity of proposed verification, and scope of the conclusion."
-focus: "framework evidence and proportional verification"
-target: last_message
+focus: last_message
 ---
 
 Pass when the answer traces the two StorageProperties registration paths in
