@@ -1,6 +1,6 @@
 ---
 name: use-modern-java
-description: Version-compatible Java 8–21 language and standard-library idioms. Use when writing or modernizing Java code, or when a change must follow the module's compiler release rather than the developer's JDK, including asks phrased as 升级 Java 版本, 用新语法, or 改成 Stream.
+description: Version-compatible Java 8–21 language and standard-library idioms. Use when writing, rewriting, or modernizing Java code, including rewriting a class with Java 17 or 21 features (pattern matching for switch or instanceof, records, sealed types, text blocks, var, streams) while keeping behavior such as null handling and list mutability, or when a change must follow the module's compiler release rather than the developer's JDK, including asks phrased as 升级 Java 版本, 用新语法, 用 Java 21 特性重写, 模式匹配, switch 表达式, or 改成 Stream.
 ---
 
 # Use Modern Java
@@ -21,9 +21,12 @@ and step 5 still does.
 2. Select rules from the [rule index](#rule-index) whose minimum version fits
    the target and whose trigger matches the code being changed. Earlier rules
    still apply on newer Java releases.
-3. Follow the linked rule details before applying a candidate transformation.
-   Each explains the intended use, behavior-sensitive exceptions, an example,
-   and its primary source.
+3. Read the linked rule section before applying a candidate transformation,
+   even for a short rewrite you could write from memory; for example
+   [pattern-switch](JAVA21.md#pattern-switch) before switching on a value that
+   can be null, or [mutable-stream-result](JAVA8.md#mutable-stream-result)
+   before collecting a list that callers modify. Each explains the intended
+   use, behavior-sensitive exceptions, an example, and its primary source.
 4. Apply an idiom only to code the task already changes; leave untouched
    lines alone unless the task asks for modernization. For each replacement,
    check what it must keep (mutability, null handling, encounter order,

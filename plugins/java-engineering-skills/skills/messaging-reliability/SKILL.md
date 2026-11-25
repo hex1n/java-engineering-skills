@@ -1,6 +1,6 @@
 ---
 name: messaging-reliability
-description: Outbox, inbox, idempotent consumers, retries, dead letters, and ordering for Kafka, RabbitMQ, RocketMQ, or equivalent brokers in Java services. Use for duplicate or lost messages, acknowledgement and offset semantics, or database-to-broker delivery, including asks phrased as 消息重复, 消息丢失, 重复消费, 消息顺序, or 死信.
+description: Outbox, inbox, idempotent producers and consumers, retries, dead letters, and ordering for Kafka, RabbitMQ, RocketMQ, or equivalent brokers in Java services. Use for duplicate or lost messages, acknowledgement and offset semantics, database-to-broker delivery, or checking producer and consumer settings against the client version's defaults (acks, enable.idempotence, retries, max.in.flight.requests.per.connection, publisher confirms, auto-commit), including asks phrased as 消息重复, 消息丢失, 重复消费, 消息顺序, 死信, 生产者幂等, acks 配置, or Kafka 默认配置.
 ---
 
 # Messaging Reliability
@@ -25,7 +25,11 @@ report.
 - For duplicate handling, outbox/inbox, retry, and replay, read
   [DELIVERY.md](DELIVERY.md).
 - For broker-specific confirmation, offset, and transaction semantics, read
-  the relevant section of [BROKERS.md](BROKERS.md).
+  the relevant section of [BROKERS.md](BROKERS.md). Read it before stating
+  what a client default or a producer/consumer setting does (`acks`,
+  idempotence, retries, in-flight limits, confirms, auto-commit), even when
+  the question only asks you to judge a pasted config: defaults differ by
+  client release, and some releases do not behave as their release notes say.
 
 Choose guarantees for the whole path. A broker's exactly-once feature does not
 automatically make an external SQL update, email, or HTTP call exactly once.
