@@ -77,11 +77,11 @@ Sources: [SELECT syntax](https://www.oceanbase.com/docs/common-oceanbase-databas
 `ob_query_timeout` defaults to 10 seconds. A longer statement (batch update,
 backfill, report, or lock wait) fails with ERROR 4012 and is rolled back. Set a
 larger session value for a known long operation or split the work into bounded
-batches. `ob_trx_timeout` and `ob_trx_idle_timeout` default to 24 hours in 4.x;
-read the session values.
+batches. `ob_trx_timeout` defaults to 24 hours from 4.0 (100 seconds before
+it), as does `ob_trx_idle_timeout` in 4.x; read the session values.
 
 After a transaction timeout (ERROR 4012, OceanBase -6210) or an idle timeout
-(ERROR 6002), the application must issue `ROLLBACK` before the connection can
+(ERROR 6002, OceanBase -6224), the application must issue `ROLLBACK` before the connection can
 be reused. Make the pool discard or roll back such a connection. A DDL
 statement inside an active transaction commits it implicitly.
 
@@ -101,9 +101,18 @@ Source: [auto-increment columns](https://www.oceanbase.com/docs/common-oceanbase
 ## DDL
 
 Replace MySQL INSTANT/INPLACE reasoning with the target version's online and
-offline lists. In 4.2.1 these are offline: changing a column type (beyond
-lengthening `VARCHAR` and similar), adding or dropping a primary key or
-making a column the primary key, dropping a column (`VIRTUAL` ones included),
+offline lists. The 4.2.1 online list includes increasing a column type's
+length or precision as a metadata-only change, with a longer `INT`, a longer
+`VARCHAR`, and a `NUMBER`-class conversion as its examples; it also lists
+renaming a column and adding one at the end. Neither page names a `DECIMAL`
+precision-and-scale widening such as `decimal(16,2)` to `decimal(20,4)`, and
+the column-type rules make a change offline when an index, primary key,
+foreign key, or partition key references the column, or when it switches
+`SIGNED` and `UNSIGNED`. Treat such a widening as unconfirmed: rehearse it on
+the same version and schema, check whether the table was rebuilt (its
+`table_id` changed), and plan for the offline case until that shows otherwise.
+In 4.2.1 these are offline: any other column type change, adding or
+dropping a primary key or making a column the primary key, dropping a column (`VIRTUAL` ones included),
 adding a column other than at the end or reordering columns, converting the
 charset, changing partitioning rules, adding an auto-increment column or
 making a column auto-increment, and adding or dropping a stored generated
