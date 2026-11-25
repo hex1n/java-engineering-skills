@@ -1,6 +1,6 @@
 ---
 name: java-testing
-description: Design, implement, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, Testcontainers, asserting committed state from a test, asynchronous verification, or unreliable backend tests, including asks phrased as 单测, 补测试, 测试跑不起来, or 用例没执行.
+description: Design, implement, review, or repair Java unit, integration, and contract tests. Use for Mockito and test doubles, JUnit migration, test discovery, a test that compiles but never runs, a green build whose test count did not change, reviewing whether a new test actually executes before merge, Testcontainers, asserting committed state from a test, asynchronous verification, or unreliable backend tests, including asks phrased as 单测, 补测试, 测试跑不起来, 用例没执行, 测试没跑, CI 绿但测试没执行, or 这个测试能合吗.
 ---
 
 # Java Testing
@@ -10,6 +10,11 @@ committed row count after `save()`, the JSON the configured `ObjectMapper`
 emits), then pick the smallest runner that can see that observable. The claim
 is testable when a wrong implementation would change that observable. Preserve the requested scope: a test plan identifies cases and execution needs;
 a test implementation includes running the affected checks when available.
+
+For a review of an existing test (does it run, is it safe to merge), check
+discovery before the assertions: read
+[JUNIT-AND-CONTRACTS.md](JUNIT-AND-CONTRACTS.md#resolve-the-execution-baseline)
+first.
 
 Inspect production and test source targets, the actual test JVM, build plugins,
 test engines, framework BOM, existing fixtures, and CI commands. Tests running

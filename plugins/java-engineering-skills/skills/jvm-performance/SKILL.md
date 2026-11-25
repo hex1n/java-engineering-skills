@@ -1,6 +1,6 @@
 ---
 name: jvm-performance
-description: Diagnose Java service CPU, latency, allocation, GC, or memory problems and verify performance changes. Use for profiling, blocked-thread and GC pause evidence, JVM incident triage, capacity regressions, or JMH benchmark design, including asks phrased as 接口慢, CPU 飙高, 频繁 Full GC, OOM, or 内存泄漏.
+description: Diagnose Java service CPU, latency, allocation, GC, or memory problems, interpret JVM diagnostic output, and verify performance changes. Use for profiling, reading jstat, jcmd, GC log, thread or heap dump output, a failed JVM attach, heap or metaspace usage, whether to restart or add memory, blocked-thread and GC pause evidence, JVM incident triage, capacity regressions, or JMH benchmark design, including when only pasted output is available and nothing can be run, and asks phrased as 接口慢, CPU 飙高, 频繁 Full GC, OOM, 内存泄漏, jstat 怎么看, jcmd 连不上, 元空间, or 要不要重启或加内存.
 ---
 
 # JVM Performance
@@ -20,8 +20,11 @@ CPU/memory limits. Keep production and test/runtime differences explicit.
 Pick the path from what is available:
 
 - A live JVM you can reach: do Step 1 before attaching.
-- Evidence the user pasted (logs, jstat output, flags): reason from it alone
-  and ask for the one missing item that separates the hypotheses.
+- Evidence the user pasted (logs, jstat output, flags): reason from it
+  without attaching or running anything. First read [DIAGNOSIS.md](DIAGNOSIS.md)
+  for jstat and GC-log interpretation and, for a failed attach,
+  [COLLECTION.md](COLLECTION.md#resolve-tools-from-the-running-jvm); then ask for
+  the one missing item that separates the hypotheses.
 - Code-level slowness or benchmark design with no production process: go to
   the hypothesis at the end of Step 1 and [MEASUREMENT.md](MEASUREMENT.md); Step 1 applies
   once production evidence exists.
