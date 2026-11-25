@@ -29,6 +29,17 @@ deeper tracing:
 - More than one candidate bean without `@Primary` or `@Qualifier`.
 - The condition, profile, or property that registers the bean is active.
 
+For a transaction that does not roll back, the smallest fix keeps one
+boundary that the caller reaches through the proxy: annotate the public method
+the caller already invokes, move the transactional work to another bean, or
+use `TransactionTemplate`, rather than injecting the bean into itself. Cover
+any checked exception that must roll back with `rollbackFor`. When the method
+has to catch the failure, rethrow it or mark the transaction rollback-only
+with `TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()`.
+Prove the fix with a test that calls the Spring bean, forces the failure, and
+then queries the rows; a test-managed transaction that rolls back on its own
+cannot show whether the service committed.
+
 ## Select the relevant reference
 
 - For an upgrade across Boot lines or a question about what a version change
@@ -39,8 +50,12 @@ deeper tracing:
   property, test-starter, and path-matching changes.
 - For version compatibility, dependency management, injection, auto-configuration,
   properties, and declarative caching, read [CONFIGURATION.md](CONFIGURATION.md).
-- For `@Transactional`, propagation, events, and `@Async`, read
-  [TRANSACTIONS-AND-ASYNC.md](TRANSACTIONS-AND-ASYNC.md).
+- Before changing propagation (`REQUIRES_NEW`, `NESTED`), explaining an
+  `UnexpectedRollbackException` or an outer transaction marked rollback-only,
+  relying on transaction events, or stating which executor runs an `@Async`
+  method, read [TRANSACTIONS-AND-ASYNC.md](TRANSACTIONS-AND-ASYNC.md). For a
+  transaction that does not roll back, the causes and fix above are usually
+  enough.
 - For MVC/WebFlux choices, validation, test evidence, and operational exposure,
   read [WEB-TESTING-OPERATIONS.md](WEB-TESTING-OPERATIONS.md).
 
