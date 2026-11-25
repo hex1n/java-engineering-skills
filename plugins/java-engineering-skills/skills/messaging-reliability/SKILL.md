@@ -12,8 +12,15 @@ ordering, or durability guarantees.
 ## Establish the delivery contract
 
 Identify the business effect, message identity, ordering scope, durable stores,
-commit/ack points, and failure recovery owner. Model a crash or lost response
-between each durable step before choosing a retry or transaction mechanism.
+commit/ack points, and failure recovery owner. Before choosing a retry or
+transaction mechanism, write one row per durable step on the path (for
+example DB commit, publish, broker persist, consume, ack, business effect):
+
+| Step | A crash or lost response right after it leaves | Who or what recovers it |
+|---|---|---|
+
+A row whose recovery cell is empty is a loss or duplicate window to fix or
+report.
 
 - For duplicate handling, outbox/inbox, retry, and replay, read
   [DELIVERY.md](DELIVERY.md).

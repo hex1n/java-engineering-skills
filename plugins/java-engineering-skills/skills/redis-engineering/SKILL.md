@@ -11,21 +11,20 @@ A Redis feature's availability is independent of the project's Java release.
 
 ## Choose the relevant contract
 
-- Cache freshness, invalidation, misses, and outages:
-  [CACHE.md](CACHE.md).
-- Counters, scripts, transactions, leases, stale owners, and Redisson lock
-  semantics: [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md).
-- Key/schema design, serialization, cluster behavior, and bounded operations:
-  [OPERATIONS.md](OPERATIONS.md).
-
 1. Write the contract in three lines: the source of truth, the staleness
    budget, and what the caller sees when the key is missing, stale, or the
-   server is down.
+   server is down. Done when each line names a table, a key pattern, or a
+   code path.
 2. Classify the use. An optimization (duplicate fills, contention) may rely on
    Redis alone; an invariant (duplicate settlement, a quota) needs a database
-   constraint or a fencing token from [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md).
-3. Open the file for that contract. Steps 1 and 2 are done when each line
-   names a table, a key pattern, or a code path.
+   constraint or a fencing token. Done when the use is named as one or the
+   other, with the constraint or token named for an invariant.
+3. Read the matching reference: cache freshness, invalidation, misses, and
+   outages → [CACHE.md](CACHE.md); counters, scripts, transactions, leases,
+   stale owners, and Redisson locks →
+   [ATOMICITY-AND-LOCKS.md](ATOMICITY-AND-LOCKS.md); key/schema design,
+   serialization, cluster behavior, and bounded operations →
+   [OPERATIONS.md](OPERATIONS.md).
 
 Inspect the existing client configuration, timeouts, serializers, and retry
 policy. Preserve key and value compatibility with other producers/consumers.
