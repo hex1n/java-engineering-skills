@@ -1,5 +1,54 @@
 # Validation record
 
+## Unreleased — messaging-reliability and use-modern-java routing — 2026-11-25
+
+The Kafka case and the plain Java 21 rewrite failed on routing, not content.
+A rerun of the unchanged skills with traces kept showed every miss was a
+one-turn answer with no tool call, and that a loaded skill rarely opened its
+reference: messaging-reliability loaded in 2 of 6 Kafka runs and read
+BROKERS.md once, the only run that passed; use-modern-java loaded in 0 of 6
+plain rewrites and in 4 of 6 `java8-release-idioms` runs without reading a
+reference.
+
+Changes:
+
+- messaging-reliability's description names producer and consumer settings
+  checked against client-version defaults (`acks`, `enable.idempotence`,
+  retries, `max.in.flight.requests.per.connection`, confirms, auto-commit) and
+  Chinese phrasings; the entry reads BROKERS.md before stating what a default
+  or setting does.
+- use-modern-java's description names rewrites with Java 17/21 features and
+  the behavior they must keep; step 3 reads the linked rule section even for a
+  short rewrite.
+- Chinese variants of the Kafka case and the plain modernization case.
+
+Run: Claude Code 2.1.332, sonnet judge, three runs per case, README read
+grant. "Before" loaded only the plugin; "after" ran with-without. Adjacent
+cases ran with the plugin before and after. Total $11.11.
+
+| Case | Loaded before → after | With plugin before → after | Without |
+|---|---|---|---|
+| kafka-idempotence-on-boot-2.6.0 (en, zh) | 2/6 → 6/6 | 1/6 → 6/6 | 0/6 |
+| neg-modern-java-no-framework-skills (en, zh) | 0/6 → 5/6 | 6/6 → 6/6 | 6/6 |
+| java8-release-idioms (en, zh) | 4/6 → 6/6 | 3/6 → 2/6 | 3/6 |
+
+After the change BROKERS.md was read in 6 of 6 Kafka runs and the linked rule
+section in every run where use-modern-java loaded. No framework skill loaded
+in the modernization cases. In the redis, Boot upgrade, Spring wiring and
+transaction cases (English and Chinese) and the Node and Python negatives,
+neither changed skill loaded, before or after, and the expected skill loaded
+as before except `transaction-not-rolled-back` (English), where
+spring-boot-engineering loaded in 6 of 9 runs before and 5 of 9 after, each
+miss a one-turn answer with no skill.
+
+Not settled:
+
+- `java8-release-idioms` passes about half the time in both arms with nearly
+  identical answers. The failing answers appear to test `add` on the returned list rather
+  than run an appending caller, which the grader names; the grader was not
+  changed.
+- Only sonnet-5-5 was measured; Codex routing was not run.
+
 ## Unreleased — Discriminating evals, negative cases, upgrade routing — 2026-11-25
 
 The first eval run (judge haiku, two runs per case) showed that seven of the

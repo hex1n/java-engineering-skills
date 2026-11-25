@@ -211,7 +211,7 @@ node scripts/pre-edit-skill-check-stats.mjs --since 2026-09-01 --verbose
 - `negative`：不该触发的场景（Node.js 内存、Python + PostgreSQL 死锁），以及
   纯语言改写时相邻 skill 不抢答。用 `tool_used` 的 `min: 0`、`max: 0`、`arm: both`
   断言没有调用。
-- `zh`：前两组旧题的中文版，复用英文 grader，用来测中文触发词。
+- `zh`：英文题的中文版（不含 OceanBase 新题和两道非 Java 负例），复用英文 grader，用来测中文触发词。
 
 运行方法：
 
