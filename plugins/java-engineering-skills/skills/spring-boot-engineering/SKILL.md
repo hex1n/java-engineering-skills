@@ -1,6 +1,6 @@
 ---
 name: spring-boot-engineering
-description: Explain, design, review, diagnose, or implement behavior that depends on Spring bean wiring, configuration, proxies, lifecycle, or the web stack. Covers Spring Boot version compatibility and tests of framework behavior, including asks phrased as 事务不生效, 循环依赖, Bean 注入失败, 配置不生效, or Spring Boot 升级.
+description: Explain, design, review, diagnose, or implement behavior that depends on Spring bean wiring, configuration, proxies, lifecycle, or the web stack. Use when @Transactional, @Async, or @Cacheable does not take effect, including a transaction that does not roll back or leaves writes committed after an exception (self-invocation, non-public methods, checked exceptions and rollbackFor, exceptions caught inside the method). Covers Spring Boot version compatibility and tests of framework behavior, including asks phrased as 事务不生效, 事务不回滚, @Transactional 失效, 循环依赖, Bean 注入失败, 配置不生效, or Spring Boot 升级.
 ---
 
 # Spring Boot Engineering
@@ -22,7 +22,8 @@ deeper tracing:
 - The call reaches the bean through its proxy: no self-invocation, and the
   method is not private or final.
 - Rollback rules: by default a checked exception does not roll back a
-  `@Transactional` method.
+  `@Transactional` method, and rollback rules apply only to an exception that
+  leaves the method; one caught inside it lets the transaction commit.
 - An `@Async` method returning `void` reports failures only to the
   `AsyncUncaughtExceptionHandler`.
 - More than one candidate bean without `@Primary` or `@Qualifier`.
