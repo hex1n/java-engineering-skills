@@ -26,7 +26,11 @@ const PATH_RULES = [
 // say nothing about this edit. They remind only.
 const CONTENT_RULES = [
   { skill: 'spring-boot-engineering', pattern: /@(Transactional|Cacheable|CacheEvict|CachePut|Async|Configuration|ConfigurationProperties|SpringBootApplication|ConditionalOn\w+)\b|import org\.springframework\.boot\./ },
-  { skill: 'database-transactions', pattern: /@Transactional\b|\bJdbcTemplate\b|\bSqlSession\b|\bEntityManager\b|\bFOR UPDATE\b|import org\.apache\.ibatis\.|import (javax|jakarta)\.persistence\./i },
+  // Java names match case-sensitively. A row-lock clause matches in upper case
+  // anywhere, or in any case on a line that also says SELECT, so a comment such
+  // as "wait for update" does not remind.
+  { skill: 'database-transactions', pattern: /@Transactional\b|\bJdbcTemplate\b|\bSqlSession\b|\bEntityManager\b|\bFOR UPDATE\b|import org\.apache\.ibatis\.|import (javax|jakarta)\.persistence\./ },
+  { skill: 'database-transactions', pattern: /\bselect\b[^\n]{0,400}?\bfor\s+update\b/i },
   { skill: 'redis-engineering', pattern: /\b(StringRedisTemplate|RedisTemplate|RedissonClient|RLock|Jedis\w*|LettuceConnectionFactory)\b|import org\.redisson\.|import io\.lettuce\./ },
   { skill: 'messaging-reliability', pattern: /@(KafkaListener|RabbitListener|RocketMQMessageListener|StreamListener)\b|\b(KafkaTemplate|RabbitTemplate|RocketMQTemplate|DefaultMQProducer|DefaultMQPushConsumer)\b|import org\.apache\.(kafka|rocketmq)\./ },
   { skill: 'java-concurrency', pattern: /import java\.util\.concurrent\.|\bsynchronized\s*[({]|\bvolatile\s|\b(CompletableFuture|ExecutorService|ThreadPoolExecutor|ReentrantLock|CountDownLatch)\b/ },

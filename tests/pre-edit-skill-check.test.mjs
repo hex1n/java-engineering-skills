@@ -44,6 +44,17 @@ test('content rules remind from the written text only', t => {
   assert.deepEqual(skills([{ path: file, content: 'BigDecimal payout = income.add(tail);' }]), ['use-modern-java:hard']);
 });
 
+test('the row-lock content rule ignores prose and still finds SQL in any case', () => {
+  const db = content => classify([{ path: '/repo/src/main/java/a/Job.java', content }])
+    .some(hit => hit.skill === 'database-transactions');
+  assert.equal(db('// wait for update from the poller\nvoid run() {}'), false);
+  assert.equal(db('String note = "jdbctemplate and entitymanager are mentioned here";'), false);
+  assert.equal(db('String sql = "select id from job where state = ? for update skip locked";'), true);
+  assert.equal(db('String sql = "SELECT id FROM job FOR UPDATE";'), true);
+  assert.equal(db('String sql = """\n    SELECT id FROM job\n    FOR UPDATE\n    """;'), true);
+  assert.equal(db('@Autowired JdbcTemplate jdbc;'), true);
+});
+
 test('shell commands gate written files only', () => {
   const paths = command => extractEdits('Bash', { command }).map(edit => edit.path);
   assert.deepEqual(paths("sed -i '/import x;/d' app/src/test/java/a/FooTest.java"), ['app/src/test/java/a/FooTest.java']);
