@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { classify, codexChildRollouts, decide, extractEdits, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
+import { classify, codexChildRollouts, decide, extractEdits, injectedSkills, isScratch, loadedInTranscript, receiptLoads, skillLoads, tempRoots } from '../plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(ROOT, 'plugins/java-engineering-skills/hooks/pre-edit-skill-check.mjs');
@@ -225,6 +225,33 @@ test('transcript scan requires a completed successful read and the complete skil
   ];
   fs.writeFileSync(file, lines.map(line => JSON.stringify(line)).join('\n'));
   assert.deepEqual([...loadedInTranscript(file, ['java-testing', 'redis-engineering', 'database-transactions'])], ['database-transactions']);
+});
+
+test('a skill the user typed as a slash command counts once Claude Code injects its body', t => {
+  // Record layout from a Claude Code 2.1.332 transcript: the slash command is a
+  // plain user record, then the host writes the skill text as a meta user record
+  // (frontmatter dropped, the command's arguments appended). A Skill call writes
+  // the same meta record with sourceToolUseID.
+  const strip = text => text.replace(/^---\n[\s\S]*?\n---\n\n?/, '');
+  const injected = (skill, extra = {}, text = strip(body(skill))) => ({ type: 'user', isMeta: true, ...extra,
+    message: { role: 'user', content: [{ type: 'text', text: `Base directory for this skill: /home/me/.claude/plugins/cache/x/skills/${skill}\n\n${text}\n\nARGUMENTS: fix twice()` }] } });
+  const typed = { type: 'user', message: { role: 'user', content: '<command-message>java-engineering-skills:use-modern-java</command-message>\n<command-name>/java-engineering-skills:use-modern-java</command-name>\n<command-args>fix twice()</command-args>' } };
+  const line = value => JSON.stringify(value);
+  assert.deepEqual(injectedSkills(line(injected('use-modern-java'))), { skills: ['use-modern-java'], toolUseId: null });
+  assert.deepEqual(injectedSkills(line(injected('use-modern-java', { sourceToolUseID: 'toolu_1' }))), { skills: ['use-modern-java'], toolUseId: 'toolu_1' });
+  // Only the host writes meta records; a pasted copy, a cut body or another skill's body does not count.
+  assert.equal(injectedSkills(line({ ...injected('use-modern-java'), isMeta: undefined })), null);
+  assert.equal(injectedSkills(line(injected('use-modern-java', {}, strip(body('use-modern-java')).slice(0, 400)))), null);
+  assert.equal(injectedSkills(line(injected('use-modern-java', {}, strip(body('java-testing'))))), null);
+  assert.equal(injectedSkills(line(typed)), null);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-edit-skill-check-slash-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const transcript = path.join(dir, 't.jsonl');
+  fs.writeFileSync(transcript, [typed, injected('use-modern-java')].map(line).join('\n'));
+  assert.deepEqual([...loadedInTranscript(transcript, ['use-modern-java', 'java-testing'])], ['use-modern-java']);
+  const result = decide(edit('/repo/src/main/java/a/Foo.java'), {}, { findLoaded: wanted => loadedInTranscript(transcript, wanted) });
+  assert.equal(result.block, null);
 });
 
 test('hard rules keep blocking until loaded; only soft rules remind once', () => {

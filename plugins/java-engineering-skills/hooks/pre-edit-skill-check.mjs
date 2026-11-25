@@ -613,18 +613,44 @@ export function toolCalls(line) {
 
 const normalizeRead = text => text.replace(/\r\n?/g, '\n').replace(/^[ \t]*\d+[→\t]/gm, '').trim();
 const skillBodies = new Map();
-function containsSkill(text, skill) {
-  if (!skillBodies.has(skill)) {
-    skillBodies.set(skill, normalizeRead(fs.readFileSync(new URL(`../skills/${skill}/SKILL.md`, import.meta.url), 'utf8')));
+// A read shows the whole file. A skill the host injects shows the text after
+// the frontmatter, so `frontmatter: false` compares against that part.
+function containsSkill(text, skill, { frontmatter = true } = {}) {
+  const key = `${skill}:${frontmatter}`;
+  if (!skillBodies.has(key)) {
+    const file = fs.readFileSync(new URL(`../skills/${skill}/SKILL.md`, import.meta.url), 'utf8');
+    skillBodies.set(key, normalizeRead(frontmatter ? file : file.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')));
   }
-  return normalizeRead(text).includes(skillBodies.get(skill));
+  return normalizeRead(text).includes(skillBodies.get(key));
+}
+
+/**
+ * Skills whose instructions Claude Code put into the conversation itself: a
+ * meta user record that opens with "Base directory for this skill: …/skills/<name>"
+ * and holds that skill's current body. The host writes it for a Skill call
+ * (with `sourceToolUseID`) and for a skill the user typed as a slash command
+ * (without it, and with no tool call at all). Only the host writes meta
+ * records. Layout observed in Claude Code 2.1.332 transcripts.
+ * Returns {skills, toolUseId} or null.
+ */
+export function injectedSkills(line) {
+  let record;
+  try { record = JSON.parse(line); } catch { return null; }
+  if (record?.type !== 'user' || record.isMeta !== true) return null;
+  const content = record.message?.content;
+  const text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.filter(item => item?.type === 'text').map(item => item.text).join('\n') : '';
+  const skills = [...text.matchAll(/^Base directory for this skill: [^\n]*[\\/]skills[\\/]([a-z-]+)[ \t]*$/gm)]
+    .map(match => match[1]).filter(skill => SKILL_NAMES.includes(skill) && containsSkill(text, skill, { frontmatter: false }));
+  return skills.length ? { skills, toolUseId: record.sourceToolUseID ?? null } : null;
 }
 
 const reportedExitCodes = output => [...output.matchAll(/"exit_code"\s*:\s*(-?\d+)|(?:Process exited with code|Exit code:)\s*(-?\d+)/gi)]
   .map(match => Number(match[1] ?? match[2]));
 const reportsFailure = (output, exitCodes) => exitCodes.some(code => code !== 0) || /"isError"\s*:\s*true/.test(output);
 
-function results(line) {
+/** Tool results on one transcript line, from either runtime: [{id, output, failed}]. */
+export function toolResults(line) {
   let record;
   try { record = JSON.parse(line); } catch { return []; }
   if (record.type === 'user' && Array.isArray(record.message?.content)) {
@@ -658,8 +684,9 @@ export function transcriptLoads() {
         skills, text: '', direct: /(^|\.)(Read|Skill)$/.test(call.toolName), invocation: /(^|\.)Skill$/.test(call.toolName),
       });
     }
-    const loaded = new Set();
-    for (const result of results(line)) {
+    // A skill the user typed as a slash command arrives with no tool call.
+    const loaded = new Set(injectedSkills(line)?.skills);
+    for (const result of toolResults(line)) {
       const read = pending.get(result.id);
       if (!read) continue;
       pending.delete(result.id);

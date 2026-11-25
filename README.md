@@ -81,7 +81,7 @@ skill 的名称和描述用于发现与选择，完整 `SKILL.md` 在选用时�
 `src/test/**/*.java` 同时命中前两行：测试源集同样按模块的 `release`（或 `testRelease`）编译，一次拦截列出两个 skill，加载一轮即可。构建文件只看写入文本：只加依赖或插件不提醒，只改一行 `<version>`、或 `sed -i` 这类不带写入文本的修改也认不出来。
 硬规则的重试不会消耗检查；只有软提醒在每个会话（子代理单独计）最多出现一次。
 加载状态依据同一代理的调用及成功回执：Claude Code 的 `Skill` 成功结果，或读取
-`SKILL.md` 后返回当前插件完整正文的结果。仅提及路径、尚未完成、失败、截断的
+`SKILL.md` 后返回当前插件完整正文的结果。用户在 Claude Code 里直接输入 `/java-engineering-skills:<skill>` 时没有工具调用，宿主把 skill 正文写成一条 meta 用户记录；这条记录含当前完整正文时同样算已加载。仅提及路径、尚未完成、失败、截断的
 读取均不算已加载；旧版未经验证的缓存会从回执重建。Codex 通过 `functions.exec`
 读取时保留完整成功回执，包括 `exit_code`，例如 `text(await tools.exec_command(...))`；
 只输出 `.output` 会丢失成功状态。子代理分别从 Codex 的 rollout 文件或 Claude Code
