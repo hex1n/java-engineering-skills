@@ -30,6 +30,12 @@ deeper tracing:
 
 ## Select the relevant reference
 
+- For an upgrade across Boot lines or a question about what a version change
+  breaks, read [CONFIGURATION.md](CONFIGURATION.md) before answering, including
+  [Lines before 2.7](CONFIGURATION.md#lines-before-27) when the start is
+  earlier than 2.7. Do this even when another skill, such as java-testing,
+  already covers part of the question: that skill does not carry the per-line
+  property, test-starter, and path-matching changes.
 - For version compatibility, dependency management, injection, auto-configuration,
   properties, and declarative caching, read [CONFIGURATION.md](CONFIGURATION.md).
 - For `@Transactional`, propagation, events, and `@Async`, read
