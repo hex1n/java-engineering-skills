@@ -1,5 +1,55 @@
 # Validation record
 
+## Unreleased — evals for three uncovered skills, OceanBase claim grader and codes — 2026-11-26
+
+Changes:
+
+- New eval cases, English and Chinese, for the three skills that had none:
+  `async-quota-thread-growth` (java-concurrency), `order-state-machine-design`
+  (java-design) and `outbox-after-commit-and-dedup` (messaging-reliability
+  DELIVERY.md). Tagged `regression`: most answers without the plugin passed.
+- `oceanbase-job-claim` (en, zh) grader `engine-recognized`: the round-5
+  failure recognised OceanBase and failed only because it read the claimed
+  rows back by a per-claim token instead of checking the affected-row count.
+  Either check now passes; a claim with no ownership check now fails.
+- OCEANBASE.md: a batch claim selects the rows carrying its token. The
+  timeout paragraph keeps the OceanBase codes the transaction-control page
+  gives (-6210, -6224) and drops the MySQL-mode numbers 4012/6002 and the
+  `ob_trx_idle_timeout` default, which no cited page states.
+- database-transactions SKILL.md: the OceanBase detection bullet is rewrapped.
+
+Executed:
+
+- `node --test "tests/*.test.mjs"`: 55/55. `node scripts/check.mjs`: pass.
+- `claude plugin eval` (Claude Code 2.1.332, sonnet judge, 3 runs per case,
+  reads allowed under the plugin directory):
+  - new cases, with-without ($4.37). Skill fired: java-concurrency 5/6,
+    java-design 5/6, messaging-reliability 6/6. Graders with / without:
+    concurrency en 2/3 / 3/3, zh 3/3 / 1/3; design en 3/3 / 3/3, zh 3/3 / 3/3;
+    outbox en 3/3 / 2/3, zh 2/3 / 3/3. The one failing with-plugin
+    concurrency run did not load the skill. Both outbox failures named
+    `REQUIRES_NEW` only as a way to continue after the error while
+    recommending `ON CONFLICT DO NOTHING`; the fail clause now targets a design
+    that adopts it, and a replay passed both 3:0 and failed a written
+    `REQUIRES_NEW` design 3:0 ($0.46).
+  - Replay of the new claim grader ($1.05): six round-5 with-plugin answers,
+    including the failed one, 3:0 pass; two without-plugin answers 1 pass,
+    1 fail; written SKIP LOCKED and no-ownership-check answers 3:0 fail.
+  - `oceanbase-job-claim` en and zh with the new text, with plugin only
+    ($1.61): all graders 6/6; every run read OCEANBASE.md and claimed by token.
+- `CompletableFuture` default executor on JDK 21 with
+  `-XX:ActiveProcessorCount=2`: 50 blocked `supplyAsync` tasks, 51 live
+  threads; with 8: 8 threads.
+
+Not verified:
+
+- The MySQL-mode error numbers for OceanBase -6210 and -6224 and the
+  `ob_trx_idle_timeout` default are not on the documentation pages read. The
+  OceanBase v4.2.1_CE source maps -6210 to 4012, -6224 (transaction needs
+  rollback) and -6278 (transaction idle timeout) to 6002, and sets the idle
+  default to 24 hours; the skill text does not rely on it.
+- Whether OceanBase 4.2.1 runs the `DECIMAL` widening online; no instance.
+
 ## Unreleased — transaction fix in the entry point, OceanBase DDL and timeouts — 2026-11-25
 
 Changes:
