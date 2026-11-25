@@ -1,6 +1,6 @@
 ---
 name: java-concurrency
-description: In-process Java concurrency, shared state, JVM locks, executors, CompletableFuture, and cancellation. Use for race conditions such as check-then-act on a ConcurrentHashMap, deadlocks, thread-pool saturation or thread counts that keep climbing, timeouts that do not stop the work, or hangs in Future.get or executor shutdown inside one JVM, including explaining such code when nothing can be run; row locks belong to database-transactions and Redis leases to redis-engineering. Includes asks phrased as 线程安全, 并发问题, 死锁, or 线程池打满.
+description: In-process Java concurrency, shared state, JVM locks, executors, CompletableFuture, and cancellation. Use for race conditions such as check-then-act on a ConcurrentHashMap, deadlocks, thread-pool saturation or thread counts that keep climbing, timeouts that do not stop the work, hangs in Future.get or executor shutdown, or CompletableFuture or executor code that behaves differently after a JDK upgrade, inside one JVM, including explaining such code when nothing can be run; row locks belong to database-transactions and Redis leases to redis-engineering. Includes asks phrased as 线程安全, 并发问题, 死锁, or 线程池打满.
 ---
 
 # Java Concurrency
@@ -15,7 +15,9 @@ guidance applies to Java 8; virtual threads require stable Java 21.
 - For visibility, concurrent containers, compound updates, lock choice, and deadlocks, read
   [STATE-AND-LOCKS.md](STATE-AND-LOCKS.md).
 - For executors, futures, deadlines, task context, and virtual threads, read
-  [TASKS.md](TASKS.md).
+  [TASKS.md](TASKS.md). It also records where the default async executor of
+  `CompletableFuture` differs between Java releases; read it before explaining
+  async code whose behaviour changed after a JDK upgrade.
 
 1. List every shared field and every path that reads or writes it: callers,
    callbacks, scheduled tasks, shutdown hooks.
